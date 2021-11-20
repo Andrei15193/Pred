@@ -28,8 +28,6 @@ namespace Pred
             if (_predicatesByName.Contains(predicateName))
                 foreach (var predicate in _predicatesByName[predicateName])
                     yield return predicate;
-            else
-                throw new ArgumentException($"'{predicateName}' predicate does not exist.", nameof(predicateName));
         }
     }
 }
