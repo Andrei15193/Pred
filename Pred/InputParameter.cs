@@ -1,17 +1,28 @@
+using System;
+
 namespace Pred
 {
-    public sealed class InputParameter<T> : CallParameter
+    public class InputParameter : CallParameter
     {
-        public InputParameter(string name, T value)
-            : base(name, typeof(T))
+        internal InputParameter(string name, Type parameterType, object value)
+            : base(name, parameterType)
             => Value = value;
 
-        public T Value { get; }
+        public object Value { get; }
 
-        public override bool IsInput
+        public sealed override bool IsInput
             => true;
 
-        public override bool IsOutput
+        public sealed override bool IsOutput
             => false;
+    }
+
+    public sealed class InputParameter<T> : InputParameter
+    {
+        public InputParameter(string name, T value)
+            : base(name, typeof(T), value)
+            => Value = value;
+
+        public new T Value { get; }
     }
 }
