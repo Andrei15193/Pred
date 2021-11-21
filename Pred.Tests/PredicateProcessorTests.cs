@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -52,20 +51,17 @@ namespace Pred.Tests
                 new Predicate("MyPredicate2")
             );
 
-            var results = predicateProcessor.ProcessAsync("MyPredicate1", new[] { Parameter.Input<object>("parameter1", 10), Parameter.Output<int>("parameter2") });
+            var results = await predicateProcessor.ProcessAsync("MyPredicate1", new[] { Parameter.Input<object>("parameter1", 10), Parameter.Output<int>("parameter2") }).ToListAsync();
 
-            var allResults = new List<PredicateProcessResult>();
-            await foreach (var result in results)
-                allResults.Add(result);
-            var actualResult = Assert.Single(allResults);
+            var result = Assert.Single(results);
 
-            var parameter1 = Assert.IsType<PredicateProcessResultParameter<object>>(actualResult["parameter1"]);
+            var parameter1 = Assert.IsType<PredicateProcessResultParameter<object>>(result["parameter1"]);
             Assert.Equal("parameter1", parameter1.Name);
             Assert.True(parameter1.IsBound);
             Assert.Equal(typeof(object), parameter1.ParameterType);
             Assert.Equal(10, parameter1.Value);
 
-            var parameter2 = Assert.IsType<PredicateProcessResultParameter<int>>(actualResult["parameter2"]);
+            var parameter2 = Assert.IsType<PredicateProcessResultParameter<int>>(result["parameter2"]);
             Assert.Equal("parameter2", parameter2.Name);
             Assert.False(parameter2.IsBound);
             Assert.Equal(typeof(int), parameter2.ParameterType);
@@ -78,12 +74,9 @@ namespace Pred.Tests
         {
             var predicateProcessor = new PredicateProcessor(Enumerable.Empty<Predicate>());
 
-            var results = predicateProcessor.ProcessAsync("predicate that does not exist");
+            var results = await predicateProcessor.ProcessAsync("predicate that does not exist").ToListAsync();
 
-            var allResults = new List<object>();
-            await foreach (var result in results)
-                allResults.Add(result);
-            Assert.Empty(allResults);
+            Assert.Empty(results);
         }
     }
 }

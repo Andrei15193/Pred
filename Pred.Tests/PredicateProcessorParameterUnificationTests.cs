@@ -19,18 +19,13 @@ namespace Pred.Tests
                 )
             );
 
-            var results = predicateProcessor.ProcessAsync("MyPredicate", Parameter.Output<int>("output"));
+            var results = await predicateProcessor.ProcessAsync("MyPredicate", Parameter.Output<int>("output")).ToListAsync();
 
-            var count = 0;
-            await foreach (var result in results)
-            {
-                count++;
-                var parameter = Assert.IsType<PredicateProcessResultParameter<int>>(result["output"]);
-                Assert.Equal("output", parameter.Name);
-                Assert.True(parameter.IsBound);
-                Assert.Equal(10, parameter.Value);
-            }
-            Assert.Equal(1, count);
+            var result = Assert.Single(results);
+            var parameter = Assert.IsType<PredicateProcessResultParameter<int>>(result["output"]);
+            Assert.Equal("output", parameter.Name);
+            Assert.True(parameter.IsBound);
+            Assert.Equal(10, parameter.Value);
         }
     }
 }
