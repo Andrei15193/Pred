@@ -44,59 +44,67 @@ namespace Pred
             return _ProcessAsync(predicateName, parametersList, cancellationToken);
         }
 
-        private async IAsyncEnumerable<PredicateProcessResult> _ProcessAsync(string predicateName, IReadOnlyList<CallParameter> parameters, [EnumeratorCancellation] CancellationToken cancellationToken)
+        private async IAsyncEnumerable<PredicateProcessResult> _ProcessAsync(string predicateName, IReadOnlyList<CallParameter> callParameters, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             await foreach (var predicate in _predicateProvider.GetPredicates(predicateName).WithCancellation(cancellationToken))
-                if (_AreParametersMatching(parameters, predicate.Parameters))
+                if (_AreParametersMatching(callParameters, predicate.Parameters))
                 {
-                    if (predicate.Body.Count == 0)
-                        yield return new PredicateProcessResult(parameters.ToDictionary(
-                            parameter => parameter.Name,
-                            parameter => parameter is InputParameter inputParameter
-                                ? _CreateProcessResultParameter(parameter.Name, parameter.ParameterType, inputParameter.Value)
-                                : _CreateProcessResultParameter(parameter.Name, parameter.ParameterType),
-                            StringComparer.Ordinal
-                        ));
-                    else
+                    var context = new
                     {
-                        var bindOrCheckExpression = predicate.Body.Cast<BindOrCheckPredicateExpression>().Single();
+                        CallParameterMapping = (IReadOnlyDictionary<PredicateParameter, CallParameter>)callParameters
+                            .Select((parameter, index) => (Parameter: parameter, Index: index))
+                            .ToDictionary(pair => predicate.Parameters[pair.Index], pair => pair.Parameter),
+                        ResultParameterMapping = (IDictionary<CallParameter, ResultParameter>)callParameters.ToDictionary(parameter => parameter, _CreateProcessResultParameter)
+                    };
 
-                        var parameterIndex = predicate.Parameters.TakeWhile(parameter => parameter != bindOrCheckExpression.Parameter).Count();
-                        var callParameter = parameters[parameterIndex];
-                        if (!callParameter.IsOutput)
-                            throw new NotImplementedException();
-
-                        yield return new PredicateProcessResult(new Dictionary<string, PredicateProcessResultParameter>(StringComparer.Ordinal)
+                    foreach (var expression in predicate.Body)
+                        switch (expression)
                         {
-                            { callParameter.Name, _CreateProcessResultParameter(callParameter.Name, callParameter.ParameterType, bindOrCheckExpression.Value.Value) }
-                        });
-                    }
+                            case BindOrCheckPredicateExpression bindOrCheckExpression:
+                                var callParameter = context.CallParameterMapping[bindOrCheckExpression.Parameter];
+                                var resultParameter = context.ResultParameterMapping[callParameter];
+
+                                switch (bindOrCheckExpression.Value)
+                                {
+                                    case ConstantPredicateExpression constantExpression:
+                                        if (resultParameter.IsBoundToValue)
+                                            throw new NotImplementedException();
+
+                                        resultParameter.BindValue(constantExpression.Value);
+                                        break;
+
+                                    case ParameterPredicateExpression parameterExpression:
+                                        var matchingCallParameter = context.CallParameterMapping[parameterExpression.Parameter];
+                                        var matchingResultParameter = context.ResultParameterMapping[matchingCallParameter];
+                                        resultParameter.BindParameter(matchingResultParameter);
+                                        foreach (var boundCallParameter in resultParameter.BoundParameters)
+                                            context.ResultParameterMapping[boundCallParameter] = resultParameter;
+
+                                        if (matchingResultParameter.IsBoundToValue)
+                                            resultParameter.BindValue(matchingResultParameter.BoundBalue);
+                                        break;
+                                }
+                                break;
+                        }
+
+                    yield return new PredicateProcessResult(callParameters.Select(callParameter => (callParameter, context.ResultParameterMapping[callParameter])));
                 }
         }
 
-        private static PredicateProcessResultParameter _CreateProcessResultParameter(string name, Type parameterType)
-            => (PredicateProcessResultParameter)typeof(PredicateProcessResultParameter<>)
-                .MakeGenericType(parameterType)
-                .GetConstructor(
-                    BindingFlags.CreateInstance | BindingFlags.NonPublic | BindingFlags.Instance,
-                    Type.DefaultBinder,
-                    CallingConventions.Standard,
-                    new[] { typeof(string) },
-                    Array.Empty<ParameterModifier>()
-                )
-                .Invoke(new[] { name });
+        private static ResultParameter _CreateProcessResultParameter(CallParameter callParameter)
+        {
+            var resultParameter = (ResultParameter)Activator.CreateInstance(
+                typeof(ResultParameter<>).MakeGenericType(callParameter.ParameterType),
+                BindingFlags.CreateInstance | BindingFlags.NonPublic | BindingFlags.Instance,
+                Type.DefaultBinder,
+                new[] { callParameter },
+                CultureInfo.InvariantCulture
+            );
+            if (callParameter is InputParameter inputParameter)
+                resultParameter.BindValue(inputParameter.Value);
 
-        private static PredicateProcessResultParameter _CreateProcessResultParameter(string name, Type parameterType, object value)
-            => (PredicateProcessResultParameter)typeof(PredicateProcessResultParameter<>)
-                .MakeGenericType(parameterType)
-                .GetConstructor(
-                    BindingFlags.CreateInstance | BindingFlags.NonPublic | BindingFlags.Instance,
-                    Type.DefaultBinder,
-                    CallingConventions.Standard,
-                    new[] { typeof(string), parameterType },
-                    Array.Empty<ParameterModifier>()
-                )
-                .Invoke(new[] { name, value });
+            return resultParameter;
+        }
 
         private static bool _AreParametersMatching(IReadOnlyList<CallParameter> callParameters, IReadOnlyList<Parameter> predicateParameters)
             => callParameters.Count == predicateParameters.Count

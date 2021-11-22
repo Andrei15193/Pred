@@ -7,10 +7,10 @@ namespace Pred
 {
     public class Predicate
     {
-        public Predicate(string name, IEnumerable<Parameter> parameters, IEnumerable<PredicateExpression> body)
+        public Predicate(string name, IEnumerable<PredicateParameter> parameters, IEnumerable<PredicateExpression> body)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
-            Parameters = parameters as IReadOnlyList<Parameter> ?? parameters?.ToArray();
+            Parameters = parameters as IReadOnlyList<PredicateParameter> ?? parameters?.ToArray();
             if (Parameters is null || Parameters.Any(parameter => parameter is null))
                 throw new ArgumentException("Cannot be null or contain null parameters.", nameof(parameters));
 
@@ -19,20 +19,20 @@ namespace Pred
                 throw new ArgumentException("Cannot be null or contain null expressions.", nameof(body));
         }
 
-        public Predicate(string name, params Parameter[] parameters)
-            : this(name, (IEnumerable<Parameter>)parameters, Enumerable.Empty<PredicateExpression>())
+        public Predicate(string name, params PredicateParameter[] parameters)
+            : this(name, (IEnumerable<PredicateParameter>)parameters, Enumerable.Empty<PredicateExpression>())
         {
         }
 
-        public Predicate(string name, IEnumerable<Parameter> parameters, params PredicateExpression[] body)
+        public Predicate(string name, IEnumerable<PredicateParameter> parameters, params PredicateExpression[] body)
             : this(name, parameters, (IEnumerable<PredicateExpression>)body)
         {
         }
 
-        public Predicate(string name, IEnumerable<Parameter> parameters, Func<IReadOnlyDictionary<string, Parameter>, IEnumerable<PredicateExpression>> bodyProvider)
+        public Predicate(string name, IEnumerable<PredicateParameter> parameters, Func<IReadOnlyDictionary<string, PredicateParameter>, IEnumerable<PredicateExpression>> bodyProvider)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
-            Parameters = parameters as IReadOnlyList<Parameter> ?? parameters?.ToArray();
+            Parameters = parameters as IReadOnlyList<PredicateParameter> ?? parameters?.ToArray();
             if (Parameters is null || Parameters.Any(parameter => parameter is null))
                 throw new ArgumentException("Cannot be null or contain null parameters.", nameof(parameters));
 
@@ -44,7 +44,7 @@ namespace Pred
 
         public string Name { get; }
 
-        public IReadOnlyList<Parameter> Parameters { get; }
+        public IReadOnlyList<PredicateParameter> Parameters { get; }
 
         public IReadOnlyList<PredicateExpression> Body { get; }
     }

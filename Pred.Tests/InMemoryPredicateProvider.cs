@@ -41,8 +41,8 @@ namespace Pred.Tests
             var predicate1s = new[]
             {
                 new Predicate("predicate1"),
-                new Predicate("predicate1", new Parameter<int>("parameter1")),
-                new Predicate("predicate1", new Parameter<int>("parameter1"), new Parameter<int>("parameter2"))
+                new Predicate("predicate1", new PredicateParameter<int>("parameter1")),
+                new Predicate("predicate1", new PredicateParameter<int>("parameter1"), new PredicateParameter<int>("parameter2"))
             };
             var predicateProvider = new InMemoryPredicateProvider(predicate1s.Append(new Predicate("predicate2")));
 

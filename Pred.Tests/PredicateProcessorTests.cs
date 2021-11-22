@@ -39,34 +39,36 @@ namespace Pred.Tests
         {
             var predicateProcessor = new PredicateProcessor(
                 new Predicate("MyPredicate1"),
-                new Predicate("MyPredicate1", new Parameter<int>("parameter1"), new Parameter<int>("parameter2")),
-                new Predicate("MyPredicate1", new Parameter<int>("parameter1"), new Parameter<object>("parameter2")),
-                new Predicate("MyPredicate1", new Parameter<object>("parameter1"), new Parameter<int>("parameter2")),
-                new Predicate("MyPredicate1", new Parameter<object>("parameter1"), new Parameter<object>("parameter2")),
+                new Predicate("MyPredicate1", new PredicateParameter<int>("parameter1"), new PredicateParameter<int>("parameter2")),
+                new Predicate("MyPredicate1", new PredicateParameter<int>("parameter1"), new PredicateParameter<object>("parameter2")),
+                new Predicate("MyPredicate1", new PredicateParameter<object>("parameter1"), new PredicateParameter<int>("parameter2")),
+                new Predicate("MyPredicate1", new PredicateParameter<object>("parameter1"), new PredicateParameter<object>("parameter2")),
                 new Predicate("myPredicate1"),
-                new Predicate("myPredicate1", new Parameter<int>("parameter1"), new Parameter<int>("parameter2")),
-                new Predicate("myPredicate1", new Parameter<int>("parameter1"), new Parameter<object>("parameter2")),
-                new Predicate("myPredicate1", new Parameter<object>("parameter1"), new Parameter<int>("parameter2")),
-                new Predicate("myPredicate1", new Parameter<object>("parameter1"), new Parameter<object>("parameter2")),
+                new Predicate("myPredicate1", new PredicateParameter<int>("parameter1"), new PredicateParameter<int>("parameter2")),
+                new Predicate("myPredicate1", new PredicateParameter<int>("parameter1"), new PredicateParameter<object>("parameter2")),
+                new Predicate("myPredicate1", new PredicateParameter<object>("parameter1"), new PredicateParameter<int>("parameter2")),
+                new Predicate("myPredicate1", new PredicateParameter<object>("parameter1"), new PredicateParameter<object>("parameter2")),
                 new Predicate("MyPredicate2")
             );
 
-            var results = await predicateProcessor.ProcessAsync("MyPredicate1", new[] { Parameter.Input<object>("parameter1", 10), Parameter.Output<int>("parameter2") }).ToListAsync();
+            var callParameter1 = Parameter.Input<object>("parameter1", 10);
+            var callParameter2 = Parameter.Output<int>("parameter2");
+            var results = await predicateProcessor.ProcessAsync("MyPredicate1", callParameter1, callParameter2).ToListAsync();
 
             var result = Assert.Single(results);
 
-            var parameter1 = Assert.IsType<PredicateProcessResultParameter<object>>(result["parameter1"]);
-            Assert.Equal("parameter1", parameter1.Name);
-            Assert.True(parameter1.IsBound);
-            Assert.Equal(typeof(object), parameter1.ParameterType);
-            Assert.Equal(10, parameter1.Value);
+            var resultParameter1 = Assert.IsType<ResultParameter<object>>(result["parameter1"]);
+            Assert.True(resultParameter1.IsBoundToValue);
+            Assert.Equal(new[] { callParameter1 }, resultParameter1.BoundParameters);
+            Assert.Equal(typeof(object), resultParameter1.ParameterType);
+            Assert.Equal(10, resultParameter1.BoundBalue);
 
-            var parameter2 = Assert.IsType<PredicateProcessResultParameter<int>>(result["parameter2"]);
-            Assert.Equal("parameter2", parameter2.Name);
-            Assert.False(parameter2.IsBound);
-            Assert.Equal(typeof(int), parameter2.ParameterType);
-            var exception = Assert.Throws<InvalidOperationException>(() => parameter2.Value);
-            Assert.Equal(new InvalidOperationException("The parameter is not bound.").Message, exception.Message);
+            var resultParameter2 = Assert.IsType<ResultParameter<int>>(result["parameter2"]);
+            Assert.False(resultParameter2.IsBoundToValue);
+            Assert.Equal(new[] { callParameter2 }, resultParameter2.BoundParameters);
+            Assert.Equal(typeof(int), resultParameter2.ParameterType);
+            var exception = Assert.Throws<InvalidOperationException>(() => resultParameter2.BoundBalue);
+            Assert.Equal(new InvalidOperationException("The parameter is not bound to a value.").Message, exception.Message);
         }
 
         [Fact]
