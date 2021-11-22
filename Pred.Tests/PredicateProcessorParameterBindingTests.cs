@@ -1,10 +1,11 @@
+using System.Linq;
 using System.Threading.Tasks;
 using Pred.Expressions;
 using Xunit;
 
 namespace Pred.Tests
 {
-    public class PredicateProcessorParameterUnificationTests
+    public class PredicateProcessorParameterBindingTests
     {
         [Fact]
         public async Task ProcessAsync_BindingOutputParameterToConstantValue_BindsTheParameter()
@@ -74,7 +75,7 @@ namespace Pred.Tests
             var result = Assert.Single(results);
             Assert.Same(result["output1"], result["output2"]);
             Assert.True(result["output1"].IsBoundToValue);
-            Assert.Equal(10, result["output1"].BoundBalue);
+            Assert.Equal(10, result["output1"].BoundValue);
             Assert.Equal(new[] { callParameter1, callParameter2 }, result[callParameter1].BoundParameters);
         }
 
@@ -99,7 +100,7 @@ namespace Pred.Tests
             var result = Assert.Single(results);
             Assert.Same(result["output1"], result["output2"]);
             Assert.True(result["output1"].IsBoundToValue);
-            Assert.Equal(10, result["output1"].BoundBalue);
+            Assert.Equal(10, result["output1"].BoundValue);
             Assert.Equal(new[] { callParameter1, callParameter2 }, result[callParameter1].BoundParameters);
         }
 
@@ -158,8 +159,80 @@ namespace Pred.Tests
             Assert.Same(result["output1"], result["output2"]);
             Assert.Same(result["output2"], result["output3"]);
             Assert.True(result["output1"].IsBoundToValue);
-            Assert.Equal(10, result["output1"].BoundBalue);
+            Assert.Equal(10, result.GetAt<object>(0).BoundValue);
             Assert.Equal(new[] { callParameter1, callParameter2, callParameter3 }, result[callParameter1].BoundParameters);
+        }
+
+        [Fact]
+        public async Task ProcessAsync_WithMatchingInputParameterValue_ReturnsResult()
+        {
+            var predicateProcessor = new PredicateProcessor(
+                new Predicate(
+                    "MyPredicate", new[] { Parameter.Predicate<object>("parameter") },
+                    parameters => new PredicateExpression[]
+                    {
+                        new BindOrCheckPredicateExpression(parameters["parameter"], new ConstantPredicateExpression<int>(10))
+                    }
+                )
+            );
+
+            var callParameter = Parameter.Input<object>("input", 10);
+            var results = await predicateProcessor.ProcessAsync("MyPredicate", callParameter).ToListAsync();
+
+            var result = Assert.Single(results);
+            Assert.True(result["input"].IsBoundToValue);
+            Assert.Equal(10, result.Get<object>(callParameter).BoundValue);
+            Assert.Equal(new[] { callParameter }, result[callParameter].BoundParameters);
+        }
+
+        [Fact]
+        public async Task ProcessAsync_WithoutMatchingInputParameterValue_ReturnsEmptyResult()
+        {
+            var predicateProcessor = new PredicateProcessor(
+                new Predicate(
+                    "MyPredicate", new[] { Parameter.Predicate<object>("parameter") },
+                    parameters => new PredicateExpression[]
+                    {
+                        new BindOrCheckPredicateExpression(parameters["parameter"], new ConstantPredicateExpression<int>(10))
+                    }
+                )
+            );
+
+            var results = await predicateProcessor.ProcessAsync("MyPredicate", Parameter.Input<string>("input", "test")).ToListAsync();
+
+            Assert.Empty(results);
+        }
+
+        [Fact]
+        public async Task ProcessAsync_WithMultiplePredicates_ReturnsAllValues()
+        {
+            var predicateProcessor = new PredicateProcessor(
+                new Predicate(
+                    "MyPredicate", new[] { Parameter.Predicate<object>("parameter") },
+                    parameters => new PredicateExpression[]
+                    {
+                        new BindOrCheckPredicateExpression(parameters["parameter"], new ConstantPredicateExpression<int>(10))
+                    }
+                ),
+                new Predicate(
+                    "MyPredicate", new[] { Parameter.Predicate<object>("parameter") },
+                    parameters => new PredicateExpression[]
+                    {
+                        new BindOrCheckPredicateExpression(parameters["parameter"], new ConstantPredicateExpression<int>(20))
+                    }
+                )
+            );
+
+            var callParameter = Parameter.Output<object>("output");
+            var results = await predicateProcessor.ProcessAsync("MyPredicate", callParameter).ToListAsync();
+
+            Assert.Equal(2, results.Count);
+            foreach (var (expectedValue, result) in new[] { 10, 20 }.Zip(results, (expectedValue, result) => (expectedValue, result)))
+            {
+                Assert.True(result["output"].IsBoundToValue);
+                Assert.Equal(expectedValue, result.Get<object>("output").BoundValue);
+                Assert.Equal(new[] { callParameter }, result[callParameter].BoundParameters);
+            }
         }
     }
 }

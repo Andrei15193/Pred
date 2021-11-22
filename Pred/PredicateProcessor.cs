@@ -31,7 +31,7 @@ namespace Pred
             => ProcessAsync(predicateName, parameter, CancellationToken.None);
 
         public IAsyncEnumerable<PredicateProcessResult> ProcessAsync(string predicateName, params CallParameter[] parameters)
-            => ProcessAsync(predicateName, (IEnumerable<CallParameter>)parameters);
+            => ProcessAsync(predicateName, parameters, CancellationToken.None);
 
         public IAsyncEnumerable<PredicateProcessResult> ProcessAsync(string predicateName, IEnumerable<CallParameter> parameters, CancellationToken cancellationToken)
         {
@@ -57,37 +57,46 @@ namespace Pred
                         ResultParameterMapping = (IDictionary<CallParameter, ResultParameter>)callParameters.ToDictionary(parameter => parameter, _CreateProcessResultParameter)
                     };
 
-                    foreach (var expression in predicate.Body)
-                        switch (expression)
-                        {
-                            case BindOrCheckPredicateExpression bindOrCheckExpression:
-                                var callParameter = context.CallParameterMapping[bindOrCheckExpression.Parameter];
-                                var resultParameter = context.ResultParameterMapping[callParameter];
+                    var isPredicateTrue = true;
+                    using (var expression = predicate.Body.GetEnumerator())
+                        while (isPredicateTrue && expression.MoveNext())
+                            switch (expression.Current)
+                            {
+                                case BindOrCheckPredicateExpression bindOrCheckExpression:
+                                    var callParameter = context.CallParameterMapping[bindOrCheckExpression.Parameter];
+                                    var resultParameter = context.ResultParameterMapping[callParameter];
 
-                                switch (bindOrCheckExpression.Value)
-                                {
-                                    case ConstantPredicateExpression constantExpression:
-                                        if (resultParameter.IsBoundToValue)
-                                            throw new NotImplementedException();
+                                    switch (bindOrCheckExpression.Value)
+                                    {
+                                        case ConstantPredicateExpression constantExpression:
+                                            if (resultParameter.IsBoundToValue)
+                                                isPredicateTrue = Equals(resultParameter.BoundValue, constantExpression.Value);
+                                            else
+                                                resultParameter.BindValue(constantExpression.Value);
+                                            break;
 
-                                        resultParameter.BindValue(constantExpression.Value);
-                                        break;
+                                        case ParameterPredicateExpression parameterExpression:
+                                            var matchingCallParameter = context.CallParameterMapping[parameterExpression.Parameter];
+                                            var matchingResultParameter = context.ResultParameterMapping[matchingCallParameter];
+                                            resultParameter.BindParameter(matchingResultParameter);
+                                            foreach (var boundCallParameter in resultParameter.BoundParameters)
+                                                context.ResultParameterMapping[boundCallParameter] = resultParameter;
 
-                                    case ParameterPredicateExpression parameterExpression:
-                                        var matchingCallParameter = context.CallParameterMapping[parameterExpression.Parameter];
-                                        var matchingResultParameter = context.ResultParameterMapping[matchingCallParameter];
-                                        resultParameter.BindParameter(matchingResultParameter);
-                                        foreach (var boundCallParameter in resultParameter.BoundParameters)
-                                            context.ResultParameterMapping[boundCallParameter] = resultParameter;
+                                            if (matchingResultParameter.IsBoundToValue)
+                                                resultParameter.BindValue(matchingResultParameter.BoundValue);
+                                            break;
 
-                                        if (matchingResultParameter.IsBoundToValue)
-                                            resultParameter.BindValue(matchingResultParameter.BoundBalue);
-                                        break;
-                                }
-                                break;
-                        }
+                                        default:
+                                            throw new NotImplementedException($"Unhandled expression type '{bindOrCheckExpression.Value.GetType()}'.");
+                                    }
+                                    break;
 
-                    yield return new PredicateProcessResult(callParameters.Select(callParameter => (callParameter, context.ResultParameterMapping[callParameter])));
+                                default:
+                                    throw new NotImplementedException($"Unhandled expression type '{expression.Current.GetType()}'.");
+                            }
+
+                    if (isPredicateTrue)
+                        yield return new PredicateProcessResult(callParameters.Select(callParameter => (callParameter, context.ResultParameterMapping[callParameter])));
                 }
         }
 

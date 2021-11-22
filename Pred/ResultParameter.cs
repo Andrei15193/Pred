@@ -15,7 +15,7 @@ namespace Pred
 
         public bool IsBoundToValue { get; private set; }
 
-        public object BoundBalue
+        public object BoundValue
             => IsBoundToValue ? _boundBalue : throw new InvalidOperationException("The parameter is not bound to a value.");
 
         public IReadOnlyList<CallParameter> BoundParameters
