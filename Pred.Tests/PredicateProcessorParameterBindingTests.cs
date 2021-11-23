@@ -27,7 +27,7 @@ namespace Pred.Tests
             var resultParameter = Assert.IsType<ResultParameter<object>>(result["output"]);
             Assert.True(resultParameter.IsBoundToValue);
             Assert.Equal(new[] { callParameter }, resultParameter.BoundParameters);
-            Assert.Equal(10, resultParameter.BoundBalue);
+            Assert.Equal(10, resultParameter.BoundValue);
             Assert.Equal(typeof(object), resultParameter.ParameterType);
         }
 

@@ -6,7 +6,7 @@ namespace Pred
 {
     public class ResultParameter : Parameter
     {
-        private object _boundBalue;
+        private object _boundValue;
         private readonly List<CallParameter> _boundParameters;
 
         internal ResultParameter(CallParameter callParameter)
@@ -16,7 +16,7 @@ namespace Pred
         public bool IsBoundToValue { get; private set; }
 
         public object BoundValue
-            => IsBoundToValue ? _boundBalue : throw new InvalidOperationException("The parameter is not bound to a value.");
+            => IsBoundToValue ? _boundValue : throw new InvalidOperationException("The parameter is not bound to a value.");
 
         public IReadOnlyList<CallParameter> BoundParameters
             => _boundParameters;
@@ -37,26 +37,26 @@ namespace Pred
                 throw new InvalidOperationException($"Cannot assing value of type '{value?.GetType() ?? typeof(object)}' to parameter of type '{ParameterType}'.");
 
             IsBoundToValue = true;
-            _boundBalue = value;
+            _boundValue = value;
         }
     }
 
     public sealed class ResultParameter<T> : ResultParameter
     {
-        private T _boundBalue;
+        private T _boundValue;
 
         internal ResultParameter(CallParameter callParameter)
             : base(callParameter)
         {
         }
 
-        public new T BoundBalue
-            => IsBoundToValue ? _boundBalue : throw new InvalidOperationException("The parameter is not bound to a value.");
+        public new T BoundValue
+            => IsBoundToValue ? _boundValue : throw new InvalidOperationException("The parameter is not bound to a value.");
 
         internal override void BindValue(object value)
         {
-            _boundBalue = (T)value;
-            base.BindValue(_boundBalue);
+            _boundValue = (T)value;
+            base.BindValue(_boundValue);
         }
     }
 }

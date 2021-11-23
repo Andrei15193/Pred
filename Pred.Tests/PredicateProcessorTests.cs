@@ -61,13 +61,13 @@ namespace Pred.Tests
             Assert.True(resultParameter1.IsBoundToValue);
             Assert.Equal(new[] { callParameter1 }, resultParameter1.BoundParameters);
             Assert.Equal(typeof(object), resultParameter1.ParameterType);
-            Assert.Equal(10, resultParameter1.BoundBalue);
+            Assert.Equal(10, resultParameter1.BoundValue);
 
             var resultParameter2 = Assert.IsType<ResultParameter<int>>(result["parameter2"]);
             Assert.False(resultParameter2.IsBoundToValue);
             Assert.Equal(new[] { callParameter2 }, resultParameter2.BoundParameters);
             Assert.Equal(typeof(int), resultParameter2.ParameterType);
-            var exception = Assert.Throws<InvalidOperationException>(() => resultParameter2.BoundBalue);
+            var exception = Assert.Throws<InvalidOperationException>(() => resultParameter2.BoundValue);
             Assert.Equal(new InvalidOperationException("The parameter is not bound to a value.").Message, exception.Message);
         }
 

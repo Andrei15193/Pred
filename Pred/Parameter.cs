@@ -7,7 +7,7 @@ namespace Pred
         public static PredicateParameter Predicate<T>(string name)
             => new PredicateParameter<T>(name);
 
-        public static CallParameter Input<T>(string name, T value)
+        public static InputParameter Input<T>(string name, T value)
             => new InputParameter<T>(name, value);
 
         public static CallParameter Output<T>(string name)

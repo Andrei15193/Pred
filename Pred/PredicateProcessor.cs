@@ -38,7 +38,7 @@ namespace Pred
             if (predicateName is null)
                 throw new ArgumentNullException(nameof(predicateName));
             var parametersList = parameters?.ToArray();
-            if (parameters is null || parametersList.Any(parameter => parameter is null))
+            if (parameters is null || parametersList.Contains(null))
                 throw new ArgumentException("Cannot be null or contain null parameters.", nameof(parameters));
 
             return _ProcessAsync(predicateName, parametersList, cancellationToken);
@@ -88,6 +88,46 @@ namespace Pred
 
                                         default:
                                             throw new NotImplementedException($"Unhandled expression type '{bindOrCheckExpression.Value.GetType()}'.");
+                                    }
+                                    break;
+
+                                case CallPredicateExpression callExpression:
+                                    var invokeParameters = callExpression
+                                        .Parameters
+                                        .Select((parameter, parameterIndex) =>
+                                        {
+                                            if (parameter is ParameterPredicateExpression parameterExpression)
+                                                return context.CallParameterMapping[parameterExpression.Parameter];
+                                            else if (parameter is ConstantPredicateExpression constantExpression)
+                                                return (CallParameter)typeof(Parameter)
+                                                    .GetMethod(nameof(Parameter.Input), 1, new[] { typeof(string), Type.MakeGenericMethodParameter(0) })
+                                                    .MakeGenericMethod(constantExpression.ValueType)
+                                                    .Invoke(null, new[] { $"parameter{parameterIndex}", constantExpression.Value });
+                                            else
+                                                throw new InvalidOperationException($"Unhandled expression type '{parameter.GetType()}'.");
+                                        })
+                                        .ToList();
+                                    isPredicateTrue = false;
+                                    await foreach (var result in ProcessAsync(callExpression.Name, invokeParameters, cancellationToken).WithCancellation(cancellationToken))
+                                    {
+                                        isPredicateTrue = true;
+                                        foreach (var invokeResultParameter in context.ResultParameterMapping.Keys.Select(callParameter => result[callParameter]).Distinct())
+                                        {
+                                            var matchingBoundParameters = invokeResultParameter.BoundParameters.Where(context.ResultParameterMapping.ContainsKey);
+                                            if (matchingBoundParameters.Any())
+                                            {
+                                                var firstBoundParameter = matchingBoundParameters.First();
+                                                var matchingResultParameter = context.ResultParameterMapping[firstBoundParameter];
+                                                if (invokeResultParameter.IsBoundToValue)
+                                                    matchingResultParameter.BindValue(invokeResultParameter.BoundValue);
+                                                foreach (var boundParameter in matchingBoundParameters.Skip(1))
+                                                {
+                                                    matchingResultParameter.BindParameter(context.ResultParameterMapping[boundParameter]);
+                                                    context.ResultParameterMapping[boundParameter] = matchingResultParameter;
+                                                }
+                                            }
+                                        }
+                                        break;
                                     }
                                     break;
 

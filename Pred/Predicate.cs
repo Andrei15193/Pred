@@ -11,11 +11,11 @@ namespace Pred
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Parameters = parameters as IReadOnlyList<PredicateParameter> ?? parameters?.ToArray();
-            if (Parameters is null || Parameters.Any(parameter => parameter is null))
+            if (Parameters is null || Parameters.Contains(null))
                 throw new ArgumentException("Cannot be null or contain null parameters.", nameof(parameters));
 
             Body = body as IReadOnlyList<PredicateExpression> ?? body?.ToArray();
-            if (Body is null || Body.Any(expression => expression is null))
+            if (Body is null || Body.Contains(null))
                 throw new ArgumentException("Cannot be null or contain null expressions.", nameof(body));
         }
 
@@ -33,12 +33,12 @@ namespace Pred
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Parameters = parameters as IReadOnlyList<PredicateParameter> ?? parameters?.ToArray();
-            if (Parameters is null || Parameters.Any(parameter => parameter is null))
+            if (Parameters is null || Parameters.Contains(null))
                 throw new ArgumentException("Cannot be null or contain null parameters.", nameof(parameters));
 
             var body = bodyProvider is null ? null : bodyProvider(Parameters.ToDictionary(parameter => parameter.Name, StringComparer.Ordinal));
             Body = body as IReadOnlyList<PredicateExpression> ?? body?.ToArray();
-            if (Body is null || Body.Any(expression => expression is null))
+            if (Body is null || Body.Contains(null))
                 throw new ArgumentException("Cannot be null, return null or return expressions contain null.", nameof(bodyProvider));
         }
 
