@@ -42,6 +42,19 @@ namespace Pred
                 throw new ArgumentException("Cannot be null, return null or return expressions contain null.", nameof(bodyProvider));
         }
 
+        internal Predicate(IEnumerable<PredicateParameter> parameters, IEnumerable<PredicateExpression> body)
+        {
+            Name = null;
+
+            Parameters = parameters as IReadOnlyList<PredicateParameter> ?? parameters?.ToArray();
+            if (Parameters is null || Parameters.Contains(null))
+                throw new ArgumentException("Cannot be null or contain null parameters.", nameof(parameters));
+
+            Body = body as IReadOnlyList<PredicateExpression> ?? body?.ToArray();
+            if (Body is null || Body.Contains(null))
+                throw new ArgumentException("Cannot be null or contain null expressions.", nameof(body));
+        }
+
         public string Name { get; }
 
         public IReadOnlyList<PredicateParameter> Parameters { get; }

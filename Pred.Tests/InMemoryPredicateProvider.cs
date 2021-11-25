@@ -27,7 +27,7 @@ namespace Pred.Tests
         {
             var predicateProvider = new InMemoryPredicateProvider();
 
-            var result = predicateProvider.GetPredicates("predicate that does not exist");
+            var result = predicateProvider.GetPredicatesAsync("predicate that does not exist");
 
             var predicates = new List<Predicate>();
             await foreach (var predicate in result)
@@ -46,7 +46,7 @@ namespace Pred.Tests
             };
             var predicateProvider = new InMemoryPredicateProvider(predicate1s.Append(new Predicate("predicate2")));
 
-            var result = predicateProvider.GetPredicates("predicate1");
+            var result = predicateProvider.GetPredicatesAsync("predicate1");
 
             var predicates = new List<Predicate>();
             await foreach (var predicate in result)

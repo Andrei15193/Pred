@@ -21,7 +21,7 @@ namespace Pred
         {
         }
 
-        public async IAsyncEnumerable<Predicate> GetPredicates(string predicateName)
+        public async IAsyncEnumerable<Predicate> GetPredicatesAsync(string predicateName)
         {
             await Task.Yield();
 

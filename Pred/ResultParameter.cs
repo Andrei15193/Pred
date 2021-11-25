@@ -13,6 +13,14 @@ namespace Pred
             : base(callParameter?.ParameterType ?? throw new ArgumentNullException(nameof(callParameter)))
             => _boundParameters = new List<CallParameter>(1) { callParameter };
 
+        private protected ResultParameter(ResultParameter resultParameter)
+            : base(resultParameter?.ParameterType ?? throw new ArgumentNullException(nameof(resultParameter)))
+        {
+            _boundValue = resultParameter._boundValue;
+            IsBoundToValue = resultParameter.IsBoundToValue;
+            _boundParameters = new List<CallParameter>(resultParameter.BoundParameters);
+        }
+
         public bool IsBoundToValue { get; private set; }
 
         public object BoundValue
@@ -39,6 +47,9 @@ namespace Pred
             IsBoundToValue = true;
             _boundValue = value;
         }
+
+        internal virtual ResultParameter Clone()
+            => new ResultParameter(this);
     }
 
     public sealed class ResultParameter<T> : ResultParameter
@@ -50,6 +61,10 @@ namespace Pred
         {
         }
 
+        private ResultParameter(ResultParameter<T> resultParameter)
+            : base(resultParameter)
+            => _boundValue = resultParameter._boundValue;
+
         public new T BoundValue
             => IsBoundToValue ? _boundValue : throw new InvalidOperationException("The parameter is not bound to a value.");
 
@@ -58,5 +73,8 @@ namespace Pred
             _boundValue = (T)value;
             base.BindValue(_boundValue);
         }
+
+        internal override ResultParameter Clone()
+            => new ResultParameter<T>(this);
     }
 }

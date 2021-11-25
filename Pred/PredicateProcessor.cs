@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,113 +44,108 @@ namespace Pred
 
         private async IAsyncEnumerable<PredicateProcessResult> _ProcessAsync(string predicateName, IReadOnlyList<CallParameter> callParameters, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            await foreach (var predicate in _predicateProvider.GetPredicates(predicateName).WithCancellation(cancellationToken))
-                if (_AreParametersMatching(callParameters, predicate.Parameters))
-                {
-                    var context = new
+            var pendingPredicateProviders = new Queue<ProcessorPredicateProvider>();
+            pendingPredicateProviders.Enqueue(new ProcessorPredicateProvider(() => _predicateProvider.GetPredicatesAsync(predicateName)));
+
+            do
+            {
+                var current = pendingPredicateProviders.Dequeue();
+                await foreach (var predicate in current.GetPredicatesAsync().WithCancellation(cancellationToken))
+                    if (_AreParametersMatching(callParameters, predicate.Parameters))
                     {
-                        CallParameterMapping = (IReadOnlyDictionary<PredicateParameter, CallParameter>)callParameters
-                            .Select((parameter, index) => (Parameter: parameter, Index: index))
-                            .ToDictionary(pair => predicate.Parameters[pair.Index], pair => pair.Parameter),
-                        ResultParameterMapping = (IDictionary<CallParameter, ResultParameter>)callParameters.ToDictionary(parameter => parameter, _CreateProcessResultParameter)
-                    };
+                        var context = current.BaseContext is object ? new PredicateProcessorContext(current.BaseContext) : new PredicateProcessorContext(predicate, callParameters, pendingPredicateProviders.Enqueue);
 
-                    var isPredicateTrue = true;
-                    using (var expression = predicate.Body.GetEnumerator())
-                        while (isPredicateTrue && expression.MoveNext())
-                            switch (expression.Current)
-                            {
-                                case BindOrCheckPredicateExpression bindOrCheckExpression:
-                                    var callParameter = context.CallParameterMapping[bindOrCheckExpression.Parameter];
-                                    var resultParameter = context.ResultParameterMapping[callParameter];
+                        var isPredicateTrue = true;
+                        using (var expression = predicate.Body.GetEnumerator())
+                            while (isPredicateTrue && expression.MoveNext())
+                                switch (expression.Current)
+                                {
+                                    case BindOrCheckPredicateExpression bindOrCheckExpression:
+                                        var callParameter = context.CallParameterMapping[bindOrCheckExpression.Parameter];
+                                        var resultParameter = context.ResultParameterMapping[callParameter];
 
-                                    switch (bindOrCheckExpression.Value)
-                                    {
-                                        case ConstantPredicateExpression constantExpression:
-                                            if (resultParameter.IsBoundToValue)
-                                                isPredicateTrue = Equals(resultParameter.BoundValue, constantExpression.Value);
-                                            else
-                                                resultParameter.BindValue(constantExpression.Value);
-                                            break;
-
-                                        case ParameterPredicateExpression parameterExpression:
-                                            var matchingCallParameter = context.CallParameterMapping[parameterExpression.Parameter];
-                                            var matchingResultParameter = context.ResultParameterMapping[matchingCallParameter];
-                                            resultParameter.BindParameter(matchingResultParameter);
-                                            foreach (var boundCallParameter in resultParameter.BoundParameters)
-                                                context.ResultParameterMapping[boundCallParameter] = resultParameter;
-
-                                            if (matchingResultParameter.IsBoundToValue)
-                                                resultParameter.BindValue(matchingResultParameter.BoundValue);
-                                            break;
-
-                                        default:
-                                            throw new NotImplementedException($"Unhandled expression type '{bindOrCheckExpression.Value.GetType()}'.");
-                                    }
-                                    break;
-
-                                case CallPredicateExpression callExpression:
-                                    var invokeParameters = callExpression
-                                        .Parameters
-                                        .Select((parameter, parameterIndex) =>
+                                        switch (bindOrCheckExpression.Value)
                                         {
-                                            if (parameter is ParameterPredicateExpression parameterExpression)
-                                                return context.CallParameterMapping[parameterExpression.Parameter];
-                                            else if (parameter is ConstantPredicateExpression constantExpression)
-                                                return (CallParameter)typeof(Parameter)
-                                                    .GetMethod(nameof(Parameter.Input), 1, new[] { typeof(string), Type.MakeGenericMethodParameter(0) })
-                                                    .MakeGenericMethod(constantExpression.ValueType)
-                                                    .Invoke(null, new[] { $"parameter{parameterIndex}", constantExpression.Value });
-                                            else
-                                                throw new InvalidOperationException($"Unhandled expression type '{parameter.GetType()}'.");
-                                        })
-                                        .ToList();
-                                    isPredicateTrue = false;
-                                    await foreach (var result in ProcessAsync(callExpression.Name, invokeParameters, cancellationToken).WithCancellation(cancellationToken))
-                                    {
-                                        isPredicateTrue = true;
-                                        foreach (var invokeResultParameter in context.ResultParameterMapping.Keys.Select(callParameter => result[callParameter]).Distinct())
-                                        {
-                                            var matchingBoundParameters = invokeResultParameter.BoundParameters.Where(context.ResultParameterMapping.ContainsKey);
-                                            if (matchingBoundParameters.Any())
-                                            {
-                                                var firstBoundParameter = matchingBoundParameters.First();
-                                                var matchingResultParameter = context.ResultParameterMapping[firstBoundParameter];
-                                                if (invokeResultParameter.IsBoundToValue)
-                                                    matchingResultParameter.BindValue(invokeResultParameter.BoundValue);
-                                                foreach (var boundParameter in matchingBoundParameters.Skip(1))
-                                                {
-                                                    matchingResultParameter.BindParameter(context.ResultParameterMapping[boundParameter]);
-                                                    context.ResultParameterMapping[boundParameter] = matchingResultParameter;
-                                                }
-                                            }
+                                            case ConstantPredicateExpression constantExpression:
+                                                if (resultParameter.IsBoundToValue)
+                                                    isPredicateTrue = Equals(resultParameter.BoundValue, constantExpression.Value);
+                                                else
+                                                    resultParameter.BindValue(constantExpression.Value);
+                                                break;
+
+                                            case ParameterPredicateExpression parameterExpression:
+                                                var matchingCallParameter = context.CallParameterMapping[parameterExpression.Parameter];
+                                                var matchingResultParameter = context.ResultParameterMapping[matchingCallParameter];
+                                                resultParameter.BindParameter(matchingResultParameter);
+                                                foreach (var boundCallParameter in resultParameter.BoundParameters)
+                                                    context.ResultParameterMapping[boundCallParameter] = resultParameter;
+
+                                                if (matchingResultParameter.IsBoundToValue)
+                                                    resultParameter.BindValue(matchingResultParameter.BoundValue);
+                                                break;
+
+                                            default:
+                                                throw new NotImplementedException($"Unhandled expression type '{bindOrCheckExpression.Value.GetType()}'.");
                                         }
                                         break;
-                                    }
-                                    break;
 
-                                default:
-                                    throw new NotImplementedException($"Unhandled expression type '{expression.Current.GetType()}'.");
-                            }
+                                    case CallPredicateExpression callExpression:
+                                        isPredicateTrue = false;
+                                        context.AddPredicateProvider(new ProcessorPredicateProvider(() => _ProcessCallAsync(context, callExpression, cancellationToken), context));
+                                        break;
 
-                    if (isPredicateTrue)
-                        yield return new PredicateProcessResult(callParameters.Select(callParameter => (callParameter, context.ResultParameterMapping[callParameter])));
-                }
+                                    default:
+                                        throw new NotImplementedException($"Unhandled expression type '{expression.Current.GetType()}'.");
+                                }
+
+                        if (isPredicateTrue)
+                            yield return new PredicateProcessResult(callParameters.Select(callParameter => (callParameter, context.ResultParameterMapping[callParameter])));
+                    }
+            } while (pendingPredicateProviders.Count > 0);
         }
 
-        private static ResultParameter _CreateProcessResultParameter(CallParameter callParameter)
+        private async IAsyncEnumerable<Predicate> _ProcessCallAsync(PredicateProcessorContext context, CallPredicateExpression callExpression, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            var resultParameter = (ResultParameter)Activator.CreateInstance(
-                typeof(ResultParameter<>).MakeGenericType(callParameter.ParameterType),
-                BindingFlags.CreateInstance | BindingFlags.NonPublic | BindingFlags.Instance,
-                Type.DefaultBinder,
-                new[] { callParameter },
-                CultureInfo.InvariantCulture
-            );
-            if (callParameter is InputParameter inputParameter)
-                resultParameter.BindValue(inputParameter.Value);
+            var invokeParameters = callExpression
+                .Parameters
+                .Select((parameter, parameterIndex) =>
+                {
+                    if (parameter is ParameterPredicateExpression parameterExpression)
+                        return context.CallParameterMapping[parameterExpression.Parameter];
+                    else if (parameter is ConstantPredicateExpression constantExpression)
+                        return (CallParameter)typeof(Parameter)
+                            .GetMethod(nameof(Parameter.Input), 1, new[] { typeof(string), Type.MakeGenericMethodParameter(0) })
+                            .MakeGenericMethod(constantExpression.ValueType)
+                            .Invoke(null, new[] { $"parameter{parameterIndex}", constantExpression.Value });
+                    else
+                        throw new InvalidOperationException($"Unhandled expression type '{parameter.GetType()}'.");
+                })
+                .ToArray();
 
-            return resultParameter;
+            await foreach (var result in ProcessAsync(callExpression.Name, invokeParameters, cancellationToken).WithCancellation(cancellationToken))
+            {
+                var predicateBody = new List<PredicateExpression>();
+                foreach (var invokeResultParameter in context.ResultParameterMapping.Keys.Select(callParameter => result[callParameter]).Distinct())
+                {
+                    var matchingBoundParameters = invokeResultParameter.BoundParameters.Where(context.ResultParameterMapping.ContainsKey);
+                    if (matchingBoundParameters.Any())
+                    {
+                        var firstBoundParameter = matchingBoundParameters.First();
+                        var firstPredicatePrameter = context.CallParameterMapping.Single(pair => pair.Value == firstBoundParameter).Key;
+                        if (invokeResultParameter.IsBoundToValue)
+                            predicateBody.Add(new BindOrCheckPredicateExpression(
+                                firstPredicatePrameter,
+                                (ConstantPredicateExpression)Activator.CreateInstance(typeof(ConstantPredicateExpression<>).MakeGenericType(firstPredicatePrameter.ParameterType), new[] { invokeResultParameter.BoundValue })
+                            ));
+                        foreach (var boundParameter in matchingBoundParameters.Skip(1))
+                            predicateBody.Add(new BindOrCheckPredicateExpression(
+                                firstPredicatePrameter,
+                                new ParameterPredicateExpression(context.CallParameterMapping.Single(pair => pair.Value == boundParameter).Key)
+                            ));
+                    }
+                }
+                yield return new Predicate(context.Predicate.Parameters, predicateBody);
+            }
         }
 
         private static bool _AreParametersMatching(IReadOnlyList<CallParameter> callParameters, IReadOnlyList<Parameter> predicateParameters)
