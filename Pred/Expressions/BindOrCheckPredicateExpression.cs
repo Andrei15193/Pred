@@ -4,7 +4,7 @@ namespace Pred.Expressions
 {
     public class BindOrCheckPredicateExpression : PredicateExpression
     {
-        public BindOrCheckPredicateExpression(PredicateParameter parameter, ConstantPredicateExpression constantExpression)
+        public BindOrCheckPredicateExpression(Parameter parameter, ConstantPredicateExpression constantExpression)
         {
             Parameter = parameter ?? throw new ArgumentNullException(nameof(parameter));
             Value = constantExpression ?? throw new ArgumentNullException(nameof(constantExpression));
@@ -13,7 +13,7 @@ namespace Pred.Expressions
                 throw new ArgumentException($"Cannot assign value of type '{constantExpression.ValueType}' (value) to '{Parameter.ParameterType}' (parameter).", nameof(constantExpression));
         }
 
-        public BindOrCheckPredicateExpression(PredicateParameter parameter, ParameterPredicateExpression parameterExpression)
+        public BindOrCheckPredicateExpression(Parameter parameter, ParameterPredicateExpression parameterExpression)
         {
             Parameter = parameter ?? throw new ArgumentNullException(nameof(parameter));
             Value = parameterExpression ?? throw new ArgumentNullException(nameof(parameterExpression));
@@ -22,7 +22,7 @@ namespace Pred.Expressions
                 throw new ArgumentException($"Cannot assign value of type '{parameterExpression.ValueType}' (value) to '{Parameter.ParameterType}' (parameter).", nameof(parameterExpression));
         }
 
-        public PredicateParameter Parameter { get; }
+        public Parameter Parameter { get; }
 
         public ValuePredicateExpression Value { get; }
     }

@@ -29,11 +29,19 @@ namespace Pred
         public IReadOnlyList<CallParameter> BoundParameters
             => _boundParameters;
 
-        internal void BindParameter(ResultParameter resultParameter)
+        internal bool BindParameter(ResultParameter resultParameter)
         {
             if (this != resultParameter)
+            {
                 _boundParameters.AddRange(resultParameter.BoundParameters.Where(boundParameter => !_boundParameters.Contains(boundParameter)));
+                return true;
+            }
+            else
+                return false;
         }
+
+        internal bool UnbindParameter(CallParameter callParameter)
+            => _boundParameters.Remove(callParameter);
 
         internal virtual void BindValue(object value)
         {

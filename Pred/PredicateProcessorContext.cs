@@ -46,6 +46,12 @@ namespace Pred
         internal IEnumerable<ProcessorPredicateProvider> AdditionalPredicateProviders
             => _additionalPredicateProviders;
 
+        internal void AddCallParameter(CallParameter callParameter)
+        {
+            if (!ResultParameterMapping.ContainsKey(callParameter))
+                ResultParameterMapping.Add(callParameter, _CreateProcessResultParameter(callParameter));
+        }
+
         internal void AddPredicateProvider(Func<CancellationToken, IAsyncEnumerable<Predicate>> predicateProvider)
             => _additionalPredicateProviders.Enqueue(new ProcessorPredicateProvider(predicateProvider, this));
 

@@ -4,10 +4,10 @@ namespace Pred.Expressions
 {
     public sealed class ParameterPredicateExpression : ValuePredicateExpression
     {
-        public ParameterPredicateExpression(PredicateParameter parameter)
+        public ParameterPredicateExpression(Parameter parameter)
             : base(parameter is null ? throw new ArgumentNullException(nameof(parameter)) : parameter.ParameterType)
             => Parameter = parameter;
 
-        public PredicateParameter Parameter { get; }
+        public Parameter Parameter { get; }
     }
 }

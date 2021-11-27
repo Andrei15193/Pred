@@ -47,7 +47,7 @@ namespace Pred
             => (ResultParameter<T>)this[callParameter];
 
         public IEnumerator<ResultParameter> GetEnumerator()
-            => _result.Select(result => result.ResultParameter).GetEnumerator();
+            => _result.Select(result => result.ResultParameter).Distinct().GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator()
             => GetEnumerator();

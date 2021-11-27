@@ -234,5 +234,36 @@ namespace Pred.Tests
                 Assert.Equal(new[] { callParameter }, result[callParameter].BoundParameters);
             }
         }
+
+        [Fact]
+        public async Task ProcessAsync_WithLocalParameters_BindToParameter()
+        {
+            var predicateProcessor = new PredicateProcessor(
+                new Predicate(
+                    "MyPredicate", new[] { Parameter.Predicate<int>("parameter") },
+                    parameters =>
+                    {
+                        var outputParameter1 = Parameter.Output<int>("outputParameter1");
+                        var outputParameter2 = Parameter.Output<int>("outputParameter2");
+                        var outputParameter3 = Parameter.Output<int>("outputParameter3");
+                        return new PredicateExpression[]
+                        {
+                            new BindOrCheckPredicateExpression(outputParameter1, new ParameterPredicateExpression(parameters["parameter"])),
+                            new BindOrCheckPredicateExpression(outputParameter1, new ParameterPredicateExpression(outputParameter2)),
+                            new BindOrCheckPredicateExpression(outputParameter2, new ParameterPredicateExpression(outputParameter3)),
+                            new BindOrCheckPredicateExpression(outputParameter3, new ConstantPredicateExpression<int>(10))
+                        };
+                    }
+                )
+            );
+
+            var callParameter = Parameter.Output<int>("output");
+            var results = await predicateProcessor.ProcessAsync("MyPredicate", callParameter).ToListAsync();
+
+            var result = Assert.Single(results);
+            Assert.True(result["output"].IsBoundToValue);
+            Assert.Equal(10, result.Get<int>("output").BoundValue);
+            Assert.Equal(new[] { callParameter }, result[callParameter].BoundParameters);
+        }
     }
 }
