@@ -76,5 +76,43 @@ namespace Pred.Tests
                 Assert.Equal(new[] { callParameter }, result.GetAt<object>(0).BoundParameters);
             }
         }
+
+        [Fact]
+        public async Task ProcessAsync_WithPredicateCallMatchingMultiplePredicatesAndCheckAfterwards_ReturnsMatchingResults()
+        {
+            var processor = new PredicateProcessor(
+                new Predicate(
+                    "MyPredicate", new[] { Parameter.Predicate<int>("parameter") },
+                    parameters => new PredicateExpression[]
+                    {
+                        new CallPredicateExpression("MyOtherPredicate", new ParameterPredicateExpression(parameters["parameter"]), new ConstantPredicateExpression<int>(30)),
+                        new BindOrCheckPredicateExpression(parameters["parameter"], new ConstantPredicateExpression<int>(10))
+                    }),
+                new Predicate(
+                    "MyOtherPredicate", new[] { Parameter.Predicate<object>("parameter1"), Parameter.Predicate<object>("parameter2") },
+                    parameters => new PredicateExpression[]
+                    {
+                        new BindOrCheckPredicateExpression(parameters["parameter1"], new ConstantPredicateExpression<int>(10))
+                    }
+                ),
+                new Predicate(
+                    "MyOtherPredicate", new[] { Parameter.Predicate<object>("parameter1"), Parameter.Predicate<object>("parameter2") },
+                    parameters => new PredicateExpression[]
+                    {
+                        new BindOrCheckPredicateExpression(parameters["parameter1"], new ConstantPredicateExpression<int>(20))
+                    }
+                )
+            );
+
+            var callParameter = Parameter.Output<object>("output");
+            var results = await processor.ProcessAsync("MyPredicate", callParameter).ToListAsync();
+
+            var result = Assert.Single(results);
+            Assert.Same(result[callParameter], Assert.Single(result));
+            Assert.Equal(typeof(object), result[0].ParameterType);
+            Assert.True(result["output"].IsBoundToValue);
+            Assert.Equal(10, result.Get<object>(callParameter).BoundValue);
+            Assert.Equal(new[] { callParameter }, result.GetAt<object>(0).BoundParameters);
+        }
     }
 }

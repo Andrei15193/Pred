@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Pred
@@ -21,9 +23,13 @@ namespace Pred
         {
         }
 
-        public async IAsyncEnumerable<Predicate> GetPredicatesAsync(string predicateName)
+        public IAsyncEnumerable<Predicate> GetPredicatesAsync(string predicateName)
+            => GetPredicatesAsync(predicateName, CancellationToken.None);
+
+        public async IAsyncEnumerable<Predicate> GetPredicatesAsync(string predicateName, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             await Task.Yield();
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (_predicatesByName.Contains(predicateName))
                 foreach (var predicate in _predicatesByName[predicateName])

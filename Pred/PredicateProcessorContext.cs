@@ -3,39 +3,51 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using Pred.Expressions;
 
 namespace Pred
 {
     internal class PredicateProcessorContext
     {
-        private readonly Action<ProcessorPredicateProvider> _addPredicateProvider;
+        private readonly Queue<ProcessorPredicateProvider> _additionalPredicateProviders;
+        private int _predicateExpressionIndex = -1;
 
-        internal PredicateProcessorContext(Predicate predicate, IEnumerable<CallParameter> callParameters, Action<ProcessorPredicateProvider> addPredicateProvider)
+        internal PredicateProcessorContext(Predicate predicate, IEnumerable<CallParameter> callParameters, PredicateProcessorContext baseContext)
         {
+            _additionalPredicateProviders = new Queue<ProcessorPredicateProvider>(0);
             Predicate = predicate;
             CallParameterMapping = callParameters
                 .Select((parameter, index) => (Parameter: parameter, Index: index))
                 .ToDictionary(pair => predicate.Parameters[pair.Index], pair => pair.Parameter);
-            ResultParameterMapping = callParameters
-                .ToDictionary(parameter => parameter, _CreateProcessResultParameter);
-            _addPredicateProvider = addPredicateProvider;
-        }
-
-        internal PredicateProcessorContext(PredicateProcessorContext context)
-        {
-            Predicate = context.Predicate;
-            CallParameterMapping = context.CallParameterMapping;
-            ResultParameterMapping = context.ResultParameterMapping.ToDictionary(pair => pair.Key, pair => pair.Value.Clone());
+            ResultParameterMapping = baseContext is null
+                ? callParameters.ToDictionary(parameter => parameter, _CreateProcessResultParameter)
+                : baseContext.ResultParameterMapping.ToDictionary(pair => pair.Key, pair => pair.Value.Clone());
         }
 
         public Predicate Predicate { get; }
+
+        public PredicateExpression CurrentExpression
+            => Predicate.Body.ElementAtOrDefault(_predicateExpressionIndex);
+
+        public IEnumerable<PredicateExpression> RemainingExpressions
+            => Predicate.Body.Skip(_predicateExpressionIndex + 1);
+
+        public bool NextExpression()
+        {
+            _predicateExpressionIndex++;
+            return _predicateExpressionIndex < Predicate.Body.Count;
+        }
 
         public IReadOnlyDictionary<PredicateParameter, CallParameter> CallParameterMapping { get; }
 
         public IDictionary<CallParameter, ResultParameter> ResultParameterMapping { get; }
 
-        internal void AddPredicateProvider(ProcessorPredicateProvider predicateProvider)
-            => _addPredicateProvider(predicateProvider);
+        internal IEnumerable<ProcessorPredicateProvider> AdditionalPredicateProviders
+            => _additionalPredicateProviders;
+
+        internal void AddPredicateProvider(Func<CancellationToken, IAsyncEnumerable<Predicate>> predicateProvider)
+            => _additionalPredicateProviders.Enqueue(new ProcessorPredicateProvider(predicateProvider, this));
 
         private static ResultParameter _CreateProcessResultParameter(CallParameter callParameter)
         {

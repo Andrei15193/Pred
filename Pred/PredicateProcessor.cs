@@ -45,63 +45,77 @@ namespace Pred
         private async IAsyncEnumerable<PredicateProcessResult> _ProcessAsync(string predicateName, IReadOnlyList<CallParameter> callParameters, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             var pendingPredicateProviders = new Queue<ProcessorPredicateProvider>();
-            pendingPredicateProviders.Enqueue(new ProcessorPredicateProvider(() => _predicateProvider.GetPredicatesAsync(predicateName)));
+            pendingPredicateProviders.Enqueue(new ProcessorPredicateProvider(cancellationToken => _predicateProvider.GetPredicatesAsync(predicateName, cancellationToken)));
 
             do
             {
-                var current = pendingPredicateProviders.Dequeue();
-                await foreach (var predicate in current.GetPredicatesAsync().WithCancellation(cancellationToken))
+                var predicateProvider = pendingPredicateProviders.Dequeue();
+                await foreach (var predicate in predicateProvider.GetPredicatesAsync(cancellationToken).WithCancellation(cancellationToken))
                     if (_AreParametersMatching(callParameters, predicate.Parameters))
                     {
-                        var context = current.BaseContext is object ? new PredicateProcessorContext(current.BaseContext) : new PredicateProcessorContext(predicate, callParameters, pendingPredicateProviders.Enqueue);
+                        var context = new PredicateProcessorContext(predicate, callParameters, predicateProvider.BaseContext);
 
                         var isPredicateTrue = true;
-                        using (var expression = predicate.Body.GetEnumerator())
-                            while (isPredicateTrue && expression.MoveNext())
-                                switch (expression.Current)
-                                {
-                                    case BindOrCheckPredicateExpression bindOrCheckExpression:
-                                        var callParameter = context.CallParameterMapping[bindOrCheckExpression.Parameter];
-                                        var resultParameter = context.ResultParameterMapping[callParameter];
+                        while (isPredicateTrue && context.NextExpression())
+                            switch (context.CurrentExpression)
+                            {
+                                case BindOrCheckPredicateExpression bindOrCheckExpression:
+                                    isPredicateTrue = _Visit(context, bindOrCheckExpression);
+                                    break;
 
-                                        switch (bindOrCheckExpression.Value)
-                                        {
-                                            case ConstantPredicateExpression constantExpression:
-                                                if (resultParameter.IsBoundToValue)
-                                                    isPredicateTrue = Equals(resultParameter.BoundValue, constantExpression.Value);
-                                                else
-                                                    resultParameter.BindValue(constantExpression.Value);
-                                                break;
+                                case CallPredicateExpression callExpression:
+                                    isPredicateTrue = _Visit(context, callExpression);
+                                    break;
 
-                                            case ParameterPredicateExpression parameterExpression:
-                                                var matchingCallParameter = context.CallParameterMapping[parameterExpression.Parameter];
-                                                var matchingResultParameter = context.ResultParameterMapping[matchingCallParameter];
-                                                resultParameter.BindParameter(matchingResultParameter);
-                                                foreach (var boundCallParameter in resultParameter.BoundParameters)
-                                                    context.ResultParameterMapping[boundCallParameter] = resultParameter;
+                                default:
+                                    throw new NotImplementedException($"Unhandled expression type '{context.CurrentExpression.GetType()}'.");
+                            }
 
-                                                if (matchingResultParameter.IsBoundToValue)
-                                                    resultParameter.BindValue(matchingResultParameter.BoundValue);
-                                                break;
-
-                                            default:
-                                                throw new NotImplementedException($"Unhandled expression type '{bindOrCheckExpression.Value.GetType()}'.");
-                                        }
-                                        break;
-
-                                    case CallPredicateExpression callExpression:
-                                        isPredicateTrue = false;
-                                        context.AddPredicateProvider(new ProcessorPredicateProvider(() => _ProcessCallAsync(context, callExpression, cancellationToken), context));
-                                        break;
-
-                                    default:
-                                        throw new NotImplementedException($"Unhandled expression type '{expression.Current.GetType()}'.");
-                                }
+                        foreach (var additionalPredicateProvider in context.AdditionalPredicateProviders)
+                            pendingPredicateProviders.Enqueue(additionalPredicateProvider);
 
                         if (isPredicateTrue)
                             yield return new PredicateProcessResult(callParameters.Select(callParameter => (callParameter, context.ResultParameterMapping[callParameter])));
                     }
             } while (pendingPredicateProviders.Count > 0);
+        }
+
+        private bool _Visit(PredicateProcessorContext context, BindOrCheckPredicateExpression bindOrCheckExpression)
+        {
+            var callParameter = context.CallParameterMapping[bindOrCheckExpression.Parameter];
+            var resultParameter = context.ResultParameterMapping[callParameter];
+
+            switch (bindOrCheckExpression.Value)
+            {
+                case ConstantPredicateExpression constantExpression:
+                    if (resultParameter.IsBoundToValue)
+                        return Equals(resultParameter.BoundValue, constantExpression.Value);
+                    else
+                    {
+                        resultParameter.BindValue(constantExpression.Value);
+                        return true;
+                    }
+
+                case ParameterPredicateExpression parameterExpression:
+                    var matchingCallParameter = context.CallParameterMapping[parameterExpression.Parameter];
+                    var matchingResultParameter = context.ResultParameterMapping[matchingCallParameter];
+                    resultParameter.BindParameter(matchingResultParameter);
+                    foreach (var boundCallParameter in resultParameter.BoundParameters)
+                        context.ResultParameterMapping[boundCallParameter] = resultParameter;
+
+                    if (matchingResultParameter.IsBoundToValue)
+                        resultParameter.BindValue(matchingResultParameter.BoundValue);
+                    return true;
+
+                default:
+                    throw new NotImplementedException($"Unhandled expression type '{bindOrCheckExpression.Value.GetType()}'.");
+            }
+        }
+
+        private bool _Visit(PredicateProcessorContext context, CallPredicateExpression callExpression)
+        {
+            context.AddPredicateProvider(cancellationToken => _ProcessCallAsync(context, callExpression, cancellationToken));
+            return false;
         }
 
         private async IAsyncEnumerable<Predicate> _ProcessCallAsync(PredicateProcessorContext context, CallPredicateExpression callExpression, [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -144,6 +158,8 @@ namespace Pred
                             ));
                     }
                 }
+                predicateBody.AddRange(context.RemainingExpressions);
+
                 yield return new Predicate(context.Predicate.Parameters, predicateBody);
             }
         }
