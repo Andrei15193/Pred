@@ -8,6 +8,10 @@ namespace Pred
             : base(parameterType)
             => Name = name ?? throw new ArgumentNullException(nameof(name));
 
+        private protected CallParameter(Type parameterType)
+            : base(parameterType)
+            => Name = null;
+
         public string Name { get; }
 
         public abstract bool IsInput { get; }

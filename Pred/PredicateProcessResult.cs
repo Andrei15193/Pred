@@ -5,12 +5,17 @@ using System.Linq;
 
 namespace Pred
 {
-    public class PredicateProcessResult : IEnumerable<ResultParameter>
+    public sealed class PredicateProcessResult : IEnumerable<ResultParameter>
     {
-        private readonly IReadOnlyList<(CallParameter CallParameter, ResultParameter ResultParameter)> _result;
+        private readonly IReadOnlyList<ResultParameterMapping> _result;
 
-        internal PredicateProcessResult(IEnumerable<(CallParameter, ResultParameter)> parameters)
-            => _result = parameters as IReadOnlyList<(CallParameter, ResultParameter)> ?? parameters?.ToArray() ?? throw new ArgumentNullException(nameof(parameters));
+        internal PredicateProcessResult(IEnumerable<ResultParameterMapping> parameters)
+        {
+            _result = parameters as IReadOnlyList<ResultParameterMapping> ?? parameters?.ToArray();
+
+            if (_result is null || _result.Contains(null))
+                throw new ArgumentException("Cannot be null or contain null parameter mappings.", nameof(parameters));
+        }
 
         public ResultParameter this[int index]
             => _result[index].ResultParameter;

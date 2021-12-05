@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Pred.Expressions;
@@ -53,10 +55,16 @@ namespace Pred
                 await foreach (var predicate in predicateProvider.GetPredicatesAsync(cancellationToken).WithCancellation(cancellationToken))
                     if (_AreParametersMatching(callParameters, predicate.Parameters))
                     {
-                        var context = new PredicateProcessorContext(predicate, callParameters, predicateProvider.BaseContext);
+                        Debug.WriteLine($"{predicate.Name}({string.Join(", ", callParameters.Select(callParameter => callParameter.Name))})");
+                        Debug.Indent();
+
+                        var context = new PredicateProcessorContext(predicate, pendingPredicateProviders.Enqueue);
+
+                        context.BeginVariableLifeCycle(predicate.Parameters.Select((parameter, parameterIndex) => new PredicateParameterMapping(parameter, callParameters[parameterIndex])));
 
                         var isPredicateTrue = true;
                         while (isPredicateTrue && context.NextExpression())
+                        {
                             switch (context.CurrentExpression)
                             {
                                 case BindOrCheckPredicateExpression bindOrCheckExpression:
@@ -67,22 +75,26 @@ namespace Pred
                                     isPredicateTrue = _Visit(context, callExpression);
                                     break;
 
+                                case BeginVariableLifeCyclePredicateExpression beginVariableLifeCyclePredicateExpression:
+                                    isPredicateTrue = _Visit(context, beginVariableLifeCyclePredicateExpression);
+                                    break;
+
+                                case EndVariableLifeCyclePredicateExpression endVariableLifeCyclePredicateExpression:
+                                    isPredicateTrue = _Visit(context, endVariableLifeCyclePredicateExpression);
+                                    break;
+
                                 default:
                                     throw new NotImplementedException($"Unhandled expression type '{context.CurrentExpression.GetType()}'.");
                             }
+                        }
 
-                        foreach (var additionalPredicateProvider in context.AdditionalPredicateProviders)
-                            pendingPredicateProviders.Enqueue(additionalPredicateProvider);
+                        Debug.Unindent();
+                        Debug.WriteLine(isPredicateTrue ? "[complete]" : "[end]");
 
                         if (isPredicateTrue)
                         {
-                            foreach (var localCallParameter in context.ResultParameterMapping.Keys.Except(callParameters).ToList())
-                            {
-                                var resultParameter = context.ResultParameterMapping[localCallParameter];
-                                resultParameter.UnbindParameter(localCallParameter);
-                                context.ResultParameterMapping.Remove(localCallParameter);
-                            }
-                            yield return new PredicateProcessResult(callParameters.Select(callParameter => (callParameter, context.ResultParameterMapping[callParameter])));
+                            var variableLifeCycleContext = context.EndVariableLifeCycle();
+                            yield return new PredicateProcessResult(callParameters.Select(callParameter => new ResultParameterMapping(callParameter, variableLifeCycleContext.ResultParameterMapping[callParameter])));
                         }
                     }
             } while (pendingPredicateProviders.Count > 0);
@@ -91,11 +103,13 @@ namespace Pred
         private bool _Visit(PredicateProcessorContext context, BindOrCheckPredicateExpression bindOrCheckExpression)
         {
             var callParameter = _GetCallParameter(context, bindOrCheckExpression.Parameter);
-            var resultParameter = context.ResultParameterMapping[callParameter];
+            var resultParameter = context.VariableLifeCycleContext.ResultParameterMapping[callParameter];
 
             switch (bindOrCheckExpression.Value)
             {
                 case ConstantPredicateExpression constantExpression:
+                    Debug.WriteLine($"{callParameter.Name} = {constantExpression.Value}");
+
                     if (resultParameter.IsBoundToValue)
                         return Equals(resultParameter.BoundValue, constantExpression.Value);
                     else
@@ -105,15 +119,17 @@ namespace Pred
                     }
 
                 case ParameterPredicateExpression parameterExpression:
-                    var otherCallParameter = _GetCallParameter(context, parameterExpression.Parameter); ;
-                    var otherResultParameter = context.ResultParameterMapping[otherCallParameter];
+                    var otherCallParameter = _GetCallParameter(context, parameterExpression.Parameter);
+                    var otherResultParameter = context.VariableLifeCycleContext.ResultParameterMapping[otherCallParameter];
+
+                    Debug.WriteLine($"{callParameter.Name} = {otherCallParameter.Name}");
 
                     if (resultParameter.IsBoundToValue && otherResultParameter.IsBoundToValue)
                         return Equals(resultParameter.BoundValue, otherResultParameter.BoundValue);
                     else
                     {
                         resultParameter.BindParameter(otherResultParameter);
-                        context.ResultParameterMapping[otherCallParameter] = resultParameter;
+                        context.VariableLifeCycleContext.ResultParameterMapping[otherCallParameter] = resultParameter;
 
                         if (otherResultParameter.IsBoundToValue)
                             resultParameter.BindValue(otherResultParameter.BoundValue);
@@ -127,62 +143,116 @@ namespace Pred
 
         private bool _Visit(PredicateProcessorContext context, CallPredicateExpression callExpression)
         {
-            context.AddPredicateProvider(cancellationToken => _ProcessCallAsync(context, callExpression, cancellationToken));
-            return false;
-        }
-
-        private async IAsyncEnumerable<Predicate> _ProcessCallAsync(PredicateProcessorContext context, CallPredicateExpression callExpression, [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
             var invokeParameters = callExpression
                 .Parameters
                 .Select((parameter, parameterIndex) =>
                 {
                     if (parameter is ParameterPredicateExpression parameterExpression)
-                        return _GetCallParameter(context, parameterExpression.Parameter);
+                    {
+                        var callParameter = _GetCallParameter(context, parameterExpression.Parameter);
+                        var resultParameter = context.VariableLifeCycleContext.ResultParameterMapping[callParameter];
+                        if (resultParameter.IsBoundToValue)
+                            return Parameter.Input(callParameter.ParameterType, resultParameter.BoundValue);
+                        else
+                            return callParameter;
+                    }
                     else if (parameter is ConstantPredicateExpression constantExpression)
-                        return (CallParameter)typeof(Parameter)
-                            .GetMethod(nameof(Parameter.Input), 1, new[] { typeof(string), Type.MakeGenericMethodParameter(0) })
-                            .MakeGenericMethod(constantExpression.ValueType)
-                            .Invoke(null, new[] { $"parameter{parameterIndex}", constantExpression.Value });
+                        return Parameter.Input(constantExpression.ValueType, constantExpression.Value);
                     else
                         throw new InvalidOperationException($"Unhandled expression type '{parameter.GetType()}'.");
                 })
                 .ToArray();
 
-            await foreach (var result in ProcessAsync(callExpression.Name, invokeParameters, cancellationToken).WithCancellation(cancellationToken))
-            {
-                var predicateBody = new List<PredicateExpression>();
+            Debug.WriteLine($"{callExpression.Name}({string.Join(", ", invokeParameters.Select(callParameter => callParameter.Name ?? ((InputParameter)callParameter).Value))})");
 
-                foreach (var invokeResultParameter in result)
+            context.AddPredicateProvider(cancellationToken => _ProcessCallAsync(context, callExpression.Name, invokeParameters, cancellationToken));
+            return false;
+        }
+
+        private async IAsyncEnumerable<Predicate> _ProcessCallAsync(PredicateProcessorContext context, string predicateName, IReadOnlyList<CallParameter> invokeParameters, [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            var variableLifeCycleContext = context.VariableLifeCycleContext;
+
+            var invokeParameterBindingExpressions = variableLifeCycleContext.ResultParameterMapping.Values.Distinct().Aggregate(
+                new List<PredicateExpression>(variableLifeCycleContext.ResultParameterMapping.Count),
+                (invokeParameterBindingExpressions, resultParameter) =>
                 {
-                    var matchingCallParameters = invokeResultParameter
-                        .BoundParameters
-                        .Where(context.ResultParameterMapping.ContainsKey);
-                    if (matchingCallParameters.Any())
+                    var commonCallParameters = resultParameter.BoundParameters.Where(invokeParameters.Contains);
+                    var firstCommonCallParameter = commonCallParameters.FirstOrDefault();
+                    if (firstCommonCallParameter is object)
                     {
-                        var firstMatchingCallParameter = matchingCallParameters.First();
-                        if (invokeResultParameter.IsBoundToValue)
-                            predicateBody.Add(new BindOrCheckPredicateExpression(
-                                firstMatchingCallParameter,
-                                (ConstantPredicateExpression)Activator.CreateInstance(typeof(ConstantPredicateExpression<>).MakeGenericType(firstMatchingCallParameter.ParameterType), new[] { invokeResultParameter.BoundValue })
+                        if (firstCommonCallParameter is OutputParameter && resultParameter.IsBoundToValue)
+                            invokeParameterBindingExpressions.Add(new BindOrCheckPredicateExpression(
+                                firstCommonCallParameter,
+                                (ConstantPredicateExpression)Activator.CreateInstance(typeof(ConstantPredicateExpression<>).MakeGenericType(firstCommonCallParameter.ParameterType), resultParameter.BoundValue)
                             ));
-                        foreach (var matchingCallParameter in matchingCallParameters)
-                            predicateBody.Add(new BindOrCheckPredicateExpression(matchingCallParameter, new ParameterPredicateExpression(firstMatchingCallParameter)));
+                        foreach (var otherCommonCallParameter in commonCallParameters.Skip(1))
+                            invokeParameterBindingExpressions.Add(new BindOrCheckPredicateExpression(firstCommonCallParameter, new ParameterPredicateExpression(otherCommonCallParameter)));
                     }
+                    return invokeParameterBindingExpressions;
                 }
-                predicateBody.AddRange(context.RemainingExpressions);
+            );
 
-                yield return new Predicate(context.Predicate.Parameters, predicateBody);
-            }
+            var parameterBindingExpressions = variableLifeCycleContext.ResultParameterMapping.Values.Distinct().Aggregate(
+                new List<PredicateExpression>(variableLifeCycleContext.ResultParameterMapping.Count),
+                (parameterBindingExpressions, resultParameter) =>
+                {
+                    var firstBoundParameter = resultParameter.BoundParameters.FirstOrDefault();
+                    if (firstBoundParameter is object)
+                    {
+                        if (resultParameter.IsBoundToValue)
+                            parameterBindingExpressions.Add(new BindOrCheckPredicateExpression(
+                                firstBoundParameter,
+                                (ConstantPredicateExpression)Activator.CreateInstance(typeof(ConstantPredicateExpression<>).MakeGenericType(firstBoundParameter.ParameterType), resultParameter.BoundValue)
+                            ));
+                        foreach (var otherCallParameter in resultParameter.BoundParameters.Skip(1))
+                            parameterBindingExpressions.Add(new BindOrCheckPredicateExpression(firstBoundParameter, new ParameterPredicateExpression(otherCallParameter)));
+                    }
+                    return parameterBindingExpressions;
+                }
+            );
+
+            await foreach (var predicate in _predicateProvider.GetPredicatesAsync(predicateName, cancellationToken).WithCancellation(cancellationToken))
+                if (_AreParametersMatching(invokeParameters, predicate.Parameters))
+                    yield return new Predicate(
+                        context.Predicate.Parameters,
+                        Enumerable
+                            .Empty<PredicateExpression>()
+                            .Append(new BeginVariableLifeCyclePredicateExpression(predicate.Parameters.Zip(invokeParameters, (predicateParameter, callParameter) => new PredicateParameterMapping(predicateParameter, callParameter))))
+                            .Concat(invokeParameterBindingExpressions)
+                            .Concat(predicate.Body)
+                            .Append(new EndVariableLifeCyclePredicateExpression())
+                            .Concat(parameterBindingExpressions)
+                            .Concat(context.RemainingExpressions)
+                    );
+        }
+
+        private bool _Visit(PredicateProcessorContext context, BeginVariableLifeCyclePredicateExpression beginVariableLifeCycleExpression)
+        {
+            Debug.WriteLine("[begin variable life cycle]");
+            Debug.Indent();
+
+            context.BeginVariableLifeCycle(beginVariableLifeCycleExpression.ParameterMappings);
+            return true;
+        }
+
+        private bool _Visit(PredicateProcessorContext context, EndVariableLifeCyclePredicateExpression endVariableLifeCycleExpression)
+        {
+            Debug.Unindent();
+            Debug.WriteLine("[end variable life cycle]");
+
+            context.EndVariableLifeCycle();
+            return true;
         }
 
         private static CallParameter _GetCallParameter(PredicateProcessorContext context, Parameter parameter)
         {
+            var variableLifeCycleContext = context.VariableLifeCycleContext;
             if (parameter is PredicateParameter expressionPredicateParameter)
-                return context.CallParameterMapping[expressionPredicateParameter];
+                return variableLifeCycleContext.CallParameterMapping[expressionPredicateParameter];
             else if (parameter is CallParameter expressionCallParameter)
             {
-                context.AddCallParameter(expressionCallParameter);
+                variableLifeCycleContext.AddVariable(expressionCallParameter);
                 return expressionCallParameter;
             }
             else
@@ -194,10 +264,10 @@ namespace Pred
                 && callParameters
                 .Zip(predicateParameters, (callParameter, predicateParameter) => (CallParameter: callParameter, PredicateParameter: predicateParameter))
                 .All(
-                    pair => pair.CallParameter.IsInput
-                        ? pair.PredicateParameter.ParameterType.IsAssignableFrom(pair.CallParameter.ParameterType)
-                        : pair.CallParameter.IsOutput
-                        ? pair.CallParameter.ParameterType.IsAssignableFrom(pair.PredicateParameter.ParameterType)
+                    mapping => mapping.CallParameter.IsInput
+                        ? mapping.PredicateParameter.ParameterType.IsAssignableFrom(mapping.CallParameter.ParameterType)
+                        : mapping.CallParameter.IsOutput
+                        ? mapping.CallParameter.ParameterType.IsAssignableFrom(mapping.PredicateParameter.ParameterType)
                         : false
                 );
     }

@@ -10,19 +10,16 @@ namespace Pred
 {
     internal class PredicateProcessorContext
     {
-        private readonly Queue<ProcessorPredicateProvider> _additionalPredicateProviders;
-        private int _predicateExpressionIndex = -1;
+        private int _predicateExpressionIndex;
+        private readonly Action<ProcessorPredicateProvider> _addAdditionalPredicateProviderCallback;
+        internal readonly Stack<PredicateVariableLifeCycleContext> _variableLifeCycleContexts;
 
-        internal PredicateProcessorContext(Predicate predicate, IEnumerable<CallParameter> callParameters, PredicateProcessorContext baseContext)
+        internal PredicateProcessorContext(Predicate predicate, Action<ProcessorPredicateProvider> addAdditionalPredicateProviderCallback)
         {
-            _additionalPredicateProviders = new Queue<ProcessorPredicateProvider>(0);
+            _addAdditionalPredicateProviderCallback = addAdditionalPredicateProviderCallback;
+            _variableLifeCycleContexts = new Stack<PredicateVariableLifeCycleContext>();
+            _predicateExpressionIndex = -1;
             Predicate = predicate;
-            CallParameterMapping = callParameters
-                .Select((parameter, index) => (Parameter: parameter, Index: index))
-                .ToDictionary(pair => predicate.Parameters[pair.Index], pair => pair.Parameter);
-            ResultParameterMapping = baseContext is null
-                ? callParameters.ToDictionary(parameter => parameter, _CreateProcessResultParameter)
-                : baseContext.ResultParameterMapping.ToDictionary(pair => pair.Key, pair => pair.Value.Clone());
         }
 
         public Predicate Predicate { get; }
@@ -39,21 +36,47 @@ namespace Pred
             return _predicateExpressionIndex < Predicate.Body.Count;
         }
 
-        public IReadOnlyDictionary<PredicateParameter, CallParameter> CallParameterMapping { get; }
+        internal PredicateVariableLifeCycleContext VariableLifeCycleContext
+            => _variableLifeCycleContexts.Peek();
 
-        public IDictionary<CallParameter, ResultParameter> ResultParameterMapping { get; }
+        internal void BeginVariableLifeCycle(IEnumerable<PredicateParameterMapping> parameterMappings)
+            => _variableLifeCycleContexts.Push(new PredicateVariableLifeCycleContext(parameterMappings));
 
-        internal IEnumerable<ProcessorPredicateProvider> AdditionalPredicateProviders
-            => _additionalPredicateProviders;
-
-        internal void AddCallParameter(CallParameter callParameter)
+        internal PredicateVariableLifeCycleContext EndVariableLifeCycle()
         {
-            if (!ResultParameterMapping.ContainsKey(callParameter))
-                ResultParameterMapping.Add(callParameter, _CreateProcessResultParameter(callParameter));
+            var oldVariableLifeCycleContext = _variableLifeCycleContexts.Pop();
+            oldVariableLifeCycleContext.ClearVariables();
+
+            if (_variableLifeCycleContexts.Count > 0)
+            {
+                var currentVariableLifeCycleContext = _variableLifeCycleContexts.Peek();
+                foreach (var callParameter in oldVariableLifeCycleContext.CallParameterMapping.Values.Where(callParameter => callParameter.Name is object))
+                    currentVariableLifeCycleContext.AddVariable(callParameter);
+
+                var oldResultParameters = oldVariableLifeCycleContext.ResultParameterMapping.Values.Distinct();
+                foreach (var oldResultParameter in oldResultParameters)
+                {
+                    var commonCallParameters = oldResultParameter.BoundParameters.Where(currentVariableLifeCycleContext.ResultParameterMapping.ContainsKey);
+                    var firstCommonCallParameter = commonCallParameters.FirstOrDefault();
+                    if (firstCommonCallParameter is object)
+                    {
+                        var currentResultParameter = currentVariableLifeCycleContext.ResultParameterMapping[firstCommonCallParameter];
+                        if (firstCommonCallParameter is OutputParameter && oldResultParameter.IsBoundToValue)
+                            currentResultParameter.BindValue(oldResultParameter.BoundValue);
+                        foreach (var otherCommonCallParameter in commonCallParameters.Skip(1))
+                        {
+                            currentResultParameter.BindParameter(currentVariableLifeCycleContext.ResultParameterMapping[otherCommonCallParameter]);
+                            currentVariableLifeCycleContext.ResultParameterMapping[otherCommonCallParameter] = currentResultParameter;
+                        }
+                    }
+                }
+            }
+
+            return oldVariableLifeCycleContext;
         }
 
         internal void AddPredicateProvider(Func<CancellationToken, IAsyncEnumerable<Predicate>> predicateProvider)
-            => _additionalPredicateProviders.Enqueue(new ProcessorPredicateProvider(predicateProvider, this));
+            => _addAdditionalPredicateProviderCallback(new ProcessorPredicateProvider(predicateProvider));
 
         private static ResultParameter _CreateProcessResultParameter(CallParameter callParameter)
         {

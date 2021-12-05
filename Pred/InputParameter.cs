@@ -8,6 +8,10 @@ namespace Pred
             : base(name, parameterType)
             => Value = value;
 
+        private protected InputParameter(Type parameterType, object value)
+            : base(parameterType)
+            => Value = value;
+
         public object Value { get; }
 
         public sealed override bool IsInput
@@ -21,6 +25,10 @@ namespace Pred
     {
         public InputParameter(string name, T value)
             : base(name, typeof(T), value)
+            => Value = value;
+
+        private InputParameter(T value)
+            : base(typeof(T), value)
             => Value = value;
 
         public new T Value { get; }
