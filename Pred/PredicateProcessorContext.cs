@@ -12,7 +12,7 @@ namespace Pred
     {
         private int _predicateExpressionIndex;
         private readonly Action<ProcessorPredicateProvider> _addAdditionalPredicateProviderCallback;
-        internal readonly Stack<PredicateVariableLifeCycleContext> _variableLifeCycleContexts;
+        private readonly Stack<PredicateVariableLifeCycleContext> _variableLifeCycleContexts;
 
         internal PredicateProcessorContext(Predicate predicate, Action<ProcessorPredicateProvider> addAdditionalPredicateProviderCallback)
         {

@@ -16,7 +16,8 @@ namespace Pred.Tests
                     parameters => new PredicateExpression[]
                     {
                         new CallPredicateExpression("MyOtherPredicate", new ParameterPredicateExpression(parameters["parameter"]), new ConstantPredicateExpression<int>(20))
-                    }),
+                    }
+                ),
                 new Predicate(
                     "MyOtherPredicate", new[] { Parameter.Predicate<object>("parameter1"), Parameter.Predicate<object>("parameter2") },
                     parameters => new PredicateExpression[]
@@ -46,7 +47,8 @@ namespace Pred.Tests
                     parameters => new PredicateExpression[]
                     {
                         new CallPredicateExpression("MyOtherPredicate", new ParameterPredicateExpression(parameters["parameter"]), new ConstantPredicateExpression<int>(30))
-                    }),
+                    }
+                ),
                 new Predicate(
                     "MyOtherPredicate", new[] { Parameter.Predicate<object>("parameter1"), Parameter.Predicate<object>("parameter2") },
                     parameters => new PredicateExpression[]
@@ -87,7 +89,8 @@ namespace Pred.Tests
                     {
                         new CallPredicateExpression("MyOtherPredicate", new ParameterPredicateExpression(parameters["parameter"]), new ConstantPredicateExpression<int>(30)),
                         new BindOrCheckPredicateExpression(parameters["parameter"], new ConstantPredicateExpression<int>(10))
-                    }),
+                    }
+                ),
                 new Predicate(
                     "MyOtherPredicate", new[] { Parameter.Predicate<object>("parameter1"), Parameter.Predicate<object>("parameter2") },
                     parameters => new PredicateExpression[]
@@ -129,7 +132,8 @@ namespace Pred.Tests
                             new CallPredicateExpression("MyOtherPredicate", new ParameterPredicateExpression(outputParameter)),
                             new BindOrCheckPredicateExpression(parameters["parameter"], new ParameterPredicateExpression(outputParameter))
                         };
-                    }),
+                    }
+                ),
                 new Predicate(
                     "MyOtherPredicate", new[] { Parameter.Predicate<int>("parameter") },
                     parameters => new PredicateExpression[]
@@ -174,7 +178,8 @@ namespace Pred.Tests
                             new CallPredicateExpression("MyOtherPredicate", new ParameterPredicateExpression(outputParameter), new ParameterPredicateExpression(outputParameter)),
                             new BindOrCheckPredicateExpression(parameters["parameter"], new ParameterPredicateExpression(outputParameter))
                         };
-                    }),
+                    }
+                ),
                 new Predicate(
                     "MyOtherPredicate", new[] { Parameter.Predicate<int>("parameter1"), Parameter.Predicate<int>("parameter2") },
                     parameters => new PredicateExpression[]
@@ -221,7 +226,8 @@ namespace Pred.Tests
                             new BindOrCheckPredicateExpression(parameters["parameter"], new ParameterPredicateExpression(outputParameter)),
                             new CallPredicateExpression("MyOtherPredicate", new ParameterPredicateExpression(outputParameter), new ParameterPredicateExpression(outputParameter)),
                         };
-                    }),
+                    }
+                ),
                 new Predicate(
                     "MyOtherPredicate", new[] { Parameter.Predicate<int>("parameter1"), Parameter.Predicate<int>("parameter2") },
                     parameters => new PredicateExpression[]

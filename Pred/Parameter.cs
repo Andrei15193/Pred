@@ -5,10 +5,10 @@ namespace Pred
 {
     public class Parameter
     {
-        public static PredicateParameter Predicate<T>(string name)
+        public static PredicateParameter<T> Predicate<T>(string name)
             => new PredicateParameter<T>(name);
 
-        public static InputParameter Input<T>(string name, T value)
+        public static InputParameter<T> Input<T>(string name, T value)
             => new InputParameter<T>(name, value);
 
         internal static InputParameter Input(Type type, object value)
@@ -17,7 +17,7 @@ namespace Pred
                 .GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.CreateInstance, Type.DefaultBinder, new[] { type }, null)
                 .Invoke(new object[] { value });
 
-        public static CallParameter Output<T>(string name)
+        public static OutputParameter<T> Output<T>(string name)
             => new OutputParameter<T>(name);
 
         internal Parameter(Type parameterType)

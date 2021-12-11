@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -100,24 +102,13 @@ namespace Pred
             } while (pendingPredicateProviders.Count > 0);
         }
 
-        private bool _Visit(PredicateProcessorContext context, BindOrCheckPredicateExpression bindOrCheckExpression)
+        private static bool _Visit(PredicateProcessorContext context, BindOrCheckPredicateExpression bindOrCheckExpression)
         {
             var callParameter = _GetCallParameter(context, bindOrCheckExpression.Parameter);
             var resultParameter = context.VariableLifeCycleContext.ResultParameterMapping[callParameter];
 
             switch (bindOrCheckExpression.Value)
             {
-                case ConstantPredicateExpression constantExpression:
-                    Debug.WriteLine($"{callParameter.Name} = {constantExpression.Value}");
-
-                    if (resultParameter.IsBoundToValue)
-                        return Equals(resultParameter.BoundValue, constantExpression.Value);
-                    else
-                    {
-                        resultParameter.BindValue(constantExpression.Value);
-                        return true;
-                    }
-
                 case ParameterPredicateExpression parameterExpression:
                     var otherCallParameter = _GetCallParameter(context, parameterExpression.Parameter);
                     var otherResultParameter = context.VariableLifeCycleContext.ResultParameterMapping[otherCallParameter];
@@ -136,8 +127,64 @@ namespace Pred
                     }
                     return true;
 
+                case ValuePredicateExpression valueExpression:
+                    Debug.Write($"{callParameter.Name} = ");
+                    var value = _Evaluate(context, valueExpression);
+                    Debug.WriteLine("");
+
+                    if (resultParameter.IsBoundToValue)
+                        return Equals(resultParameter.BoundValue, value);
+                    else
+                    {
+                        resultParameter.BindValue(value);
+                        return true;
+                    }
+
                 default:
                     throw new NotImplementedException($"Unhandled expression type '{bindOrCheckExpression.Value.GetType()}'.");
+            }
+        }
+
+        private static object _Evaluate(PredicateProcessorContext context, ValuePredicateExpression valueExpression)
+        {
+            switch (valueExpression)
+            {
+                case ConstantPredicateExpression constantExpression:
+                    Debug.Write(_GetValue(constantExpression.Value));
+                    return constantExpression.Value;
+
+                case MapPredicateExpression mapExpression:
+                    var callParameter = _GetCallParameter(context, mapExpression.ParameterExpression.Parameter);
+                    var resultParameter = context.VariableLifeCycleContext.ResultParameterMapping[callParameter];
+                    if (resultParameter.IsBoundToValue)
+                    {
+                        var mapResult = mapExpression.Selector(resultParameter.BoundValue);
+                        Debug.Write($"[callback] {_GetValue(mapResult)}");
+                        return mapResult;
+                    }
+                    else
+                        throw new InvalidOperationException($"Invalid map expression, parameter '{callParameter.Name}' is not bound to a value.");
+
+                default:
+                    throw new NotImplementedException($"Unhandled expression type '{valueExpression.GetType()}'.");
+            }
+
+            static string _GetValue(object value)
+            {
+                switch (value)
+                {
+                    case string @string:
+                        return $"\"{@string.Replace("\"", "\\\"")}\"";
+
+                    case IEnumerable collection:
+                        return $"[ {string.Join(", ", collection.OfType<object>().Select(_GetValue))} ]";
+
+                    case null:
+                        return "null";
+
+                    default:
+                        return Convert.ToString(value, CultureInfo.InvariantCulture);
+                }
             }
         }
 
@@ -148,14 +195,7 @@ namespace Pred
                 .Select((parameter, parameterIndex) =>
                 {
                     if (parameter is ParameterPredicateExpression parameterExpression)
-                    {
-                        var callParameter = _GetCallParameter(context, parameterExpression.Parameter);
-                        var resultParameter = context.VariableLifeCycleContext.ResultParameterMapping[callParameter];
-                        if (resultParameter.IsBoundToValue)
-                            return Parameter.Input(callParameter.ParameterType, resultParameter.BoundValue);
-                        else
-                            return callParameter;
-                    }
+                        return _GetCallParameter(context, parameterExpression.Parameter);
                     else if (parameter is ConstantPredicateExpression constantExpression)
                         return Parameter.Input(constantExpression.ValueType, constantExpression.Value);
                     else
@@ -227,7 +267,7 @@ namespace Pred
                     );
         }
 
-        private bool _Visit(PredicateProcessorContext context, BeginVariableLifeCyclePredicateExpression beginVariableLifeCycleExpression)
+        private static bool _Visit(PredicateProcessorContext context, BeginVariableLifeCyclePredicateExpression beginVariableLifeCycleExpression)
         {
             Debug.WriteLine("[begin variable life cycle]");
             Debug.Indent();
@@ -236,7 +276,7 @@ namespace Pred
             return true;
         }
 
-        private bool _Visit(PredicateProcessorContext context, EndVariableLifeCyclePredicateExpression endVariableLifeCycleExpression)
+        private static bool _Visit(PredicateProcessorContext context, EndVariableLifeCyclePredicateExpression endVariableLifeCycleExpression)
         {
             Debug.Unindent();
             Debug.WriteLine("[end variable life cycle]");

@@ -14,24 +14,17 @@ namespace Pred.Tests.Expressions
         }
 
         [Fact]
-        public void Create_WithNullConstantExpression_ThrowsException()
+        public void Create_WithNullValueExpression_ThrowsException()
         {
-            var exception = Assert.Throws<ArgumentNullException>("constantExpression", () => new BindOrCheckPredicateExpression(Parameter.Predicate<int>("parameter"), default(ConstantPredicateExpression)));
-            Assert.Equal(new ArgumentNullException("constantExpression").Message, exception.Message);
-        }
-
-        [Fact]
-        public void Create_WithNullConstantParameterExpression_ThrowsException()
-        {
-            var exception = Assert.Throws<ArgumentNullException>("parameterExpression", () => new BindOrCheckPredicateExpression(Parameter.Predicate<int>("parameter"), default(ParameterPredicateExpression)));
-            Assert.Equal(new ArgumentNullException("parameterExpression").Message, exception.Message);
+            var exception = Assert.Throws<ArgumentNullException>("valueExpression", () => new BindOrCheckPredicateExpression(Parameter.Predicate<int>("parameter"), default(ValuePredicateExpression)));
+            Assert.Equal(new ArgumentNullException("valueExpression").Message, exception.Message);
         }
 
         [Fact]
         public void Create_WithBaseValueTypeBindingToConcreteType_ThrowsException()
         {
-            var exception = Assert.Throws<ArgumentException>("constantExpression", () => new BindOrCheckPredicateExpression(Parameter.Predicate<int>("parameter"), new ConstantPredicateExpression<object>(default)));
-            Assert.Equal(new ArgumentException("Cannot assign value of type 'System.Object' (value) to 'System.Int32' (parameter).", "constantExpression").Message, exception.Message);
+            var exception = Assert.Throws<ArgumentException>("valueExpression", () => new BindOrCheckPredicateExpression(Parameter.Predicate<int>("parameter"), new ConstantPredicateExpression<object>(default)));
+            Assert.Equal(new ArgumentException("Cannot assign value of type 'System.Object' (value) to 'System.Int32' (parameter).", "valueExpression").Message, exception.Message);
         }
 
         [Fact]

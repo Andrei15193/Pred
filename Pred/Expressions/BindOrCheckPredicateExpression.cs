@@ -4,22 +4,13 @@ namespace Pred.Expressions
 {
     public class BindOrCheckPredicateExpression : PredicateExpression
     {
-        public BindOrCheckPredicateExpression(Parameter parameter, ConstantPredicateExpression constantExpression)
+        public BindOrCheckPredicateExpression(Parameter parameter, ValuePredicateExpression valueExpression)
         {
             Parameter = parameter ?? throw new ArgumentNullException(nameof(parameter));
-            Value = constantExpression ?? throw new ArgumentNullException(nameof(constantExpression));
+            Value = valueExpression ?? throw new ArgumentNullException(nameof(valueExpression));
 
             if (!Parameter.ParameterType.IsAssignableFrom(Value.ValueType))
-                throw new ArgumentException($"Cannot assign value of type '{constantExpression.ValueType}' (value) to '{Parameter.ParameterType}' (parameter).", nameof(constantExpression));
-        }
-
-        public BindOrCheckPredicateExpression(Parameter parameter, ParameterPredicateExpression parameterExpression)
-        {
-            Parameter = parameter ?? throw new ArgumentNullException(nameof(parameter));
-            Value = parameterExpression ?? throw new ArgumentNullException(nameof(parameterExpression));
-
-            if (Parameter.ParameterType != Value.ValueType)
-                throw new ArgumentException($"Cannot assign value of type '{parameterExpression.ValueType}' (value) to '{Parameter.ParameterType}' (parameter).", nameof(parameterExpression));
+                throw new ArgumentException($"Cannot assign value of type '{valueExpression.ValueType}' (value) to '{Parameter.ParameterType}' (parameter).", nameof(valueExpression));
         }
 
         public Parameter Parameter { get; }
