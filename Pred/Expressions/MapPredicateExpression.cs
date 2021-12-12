@@ -16,28 +16,11 @@ namespace Pred.Expressions
         public Func<object, object> Selector { get; }
     }
 
-    public class MapPredicateExpression<TParameter, TResult> : MapPredicateExpression
+    public sealed class MapPredicateExpression<TParameter, TResult> : MapPredicateExpression
     {
-        public MapPredicateExpression(ParameterPredicateExpression parameterExpression, Func<TParameter, TResult> selector)
+        internal MapPredicateExpression(ParameterPredicateExpression parameterExpression, Func<TParameter, TResult> selector)
             : base(typeof(TResult), parameterExpression, parameterValue => selector((TParameter)parameterValue))
-        {
-            Selector = selector ?? throw new ArgumentNullException(nameof(selector));
-        }
-
-        public MapPredicateExpression(PredicateParameter<TParameter> parameter, Func<TParameter, TResult> selector)
-            : this(parameter is object ? new ParameterPredicateExpression(parameter) : throw new ArgumentNullException(nameof(parameter)), selector)
-        {
-        }
-
-        public MapPredicateExpression(InputParameter<TParameter> parameter, Func<TParameter, TResult> selector)
-            : this(parameter is object ? new ParameterPredicateExpression(parameter) : throw new ArgumentNullException(nameof(parameter)), selector)
-        {
-        }
-
-        public MapPredicateExpression(OutputParameter<TParameter> parameter, Func<TParameter, TResult> selector)
-            : this(parameter is object ? new ParameterPredicateExpression(parameter) : throw new ArgumentNullException(nameof(parameter)), selector)
-        {
-        }
+            => Selector = selector ?? throw new ArgumentNullException(nameof(selector));
 
         public new Func<TParameter, TResult> Selector { get; }
     }

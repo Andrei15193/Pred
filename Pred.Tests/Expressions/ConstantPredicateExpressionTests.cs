@@ -10,7 +10,7 @@ namespace Pred.Tests.Expressions
         {
             var value = "this is a test";
 
-            var expression = new ConstantPredicateExpression<object>(value);
+            var expression = PredicateExpression.Constant<object>(value);
 
             Assert.Same(value, expression.Value);
             Assert.Equal(typeof(object), expression.ValueType);

@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Pred.Expressions;
@@ -60,7 +60,7 @@ namespace Pred
                         Debug.WriteLine($"{predicate.Name}({string.Join(", ", callParameters.Select(callParameter => callParameter.Name))})");
                         Debug.Indent();
 
-                        var context = new PredicateProcessorContext(predicate, pendingPredicateProviders.Enqueue);
+                        var context = new PredicateProcessorContext(predicate, _predicateProvider, pendingPredicateProviders.Enqueue);
 
                         context.BeginVariableLifeCycle(predicate.Parameters.Select((parameter, parameterIndex) => new PredicateParameterMapping(parameter, callParameters[parameterIndex])));
 
@@ -77,12 +77,16 @@ namespace Pred
                                     isPredicateTrue = _Visit(context, callExpression);
                                     break;
 
-                                case BeginVariableLifeCyclePredicateExpression beginVariableLifeCyclePredicateExpression:
-                                    isPredicateTrue = _Visit(context, beginVariableLifeCyclePredicateExpression);
+                                case BeginVariableLifeCyclePredicateExpression beginVariableLifeCycleExpression:
+                                    isPredicateTrue = _Visit(context, beginVariableLifeCycleExpression);
                                     break;
 
-                                case EndVariableLifeCyclePredicateExpression endVariableLifeCyclePredicateExpression:
-                                    isPredicateTrue = _Visit(context, endVariableLifeCyclePredicateExpression);
+                                case EndVariableLifeCyclePredicateExpression endVariableLifeCycleExpression:
+                                    isPredicateTrue = _Visit(context, endVariableLifeCycleExpression);
+                                    break;
+
+                                case CheckPredicateExpression checkExpression:
+                                    isPredicateTrue = _Visit(context, checkExpression);
                                     break;
 
                                 default:
@@ -188,7 +192,7 @@ namespace Pred
             }
         }
 
-        private bool _Visit(PredicateProcessorContext context, CallPredicateExpression callExpression)
+        private static bool _Visit(PredicateProcessorContext context, CallPredicateExpression callExpression)
         {
             var invokeParameters = callExpression
                 .Parameters
@@ -209,7 +213,7 @@ namespace Pred
             return false;
         }
 
-        private async IAsyncEnumerable<Predicate> _ProcessCallAsync(PredicateProcessorContext context, string predicateName, IReadOnlyList<CallParameter> invokeParameters, [EnumeratorCancellation] CancellationToken cancellationToken)
+        private static async IAsyncEnumerable<Predicate> _ProcessCallAsync(PredicateProcessorContext context, string predicateName, IReadOnlyList<CallParameter> invokeParameters, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             var variableLifeCycleContext = context.VariableLifeCycleContext;
 
@@ -224,7 +228,10 @@ namespace Pred
                         if (firstCommonCallParameter is OutputParameter && resultParameter.IsBoundToValue)
                             invokeParameterBindingExpressions.Add(new BindOrCheckPredicateExpression(
                                 firstCommonCallParameter,
-                                (ConstantPredicateExpression)Activator.CreateInstance(typeof(ConstantPredicateExpression<>).MakeGenericType(firstCommonCallParameter.ParameterType), resultParameter.BoundValue)
+                                (ConstantPredicateExpression)typeof(PredicateExpression)
+                                    .GetMethod(nameof(PredicateExpression.Constant), 1, BindingFlags.Static | BindingFlags.Public | BindingFlags.InvokeMethod, Type.DefaultBinder, CallingConventions.Standard, new[] { Type.MakeGenericMethodParameter(0) }, null)
+                                    .MakeGenericMethod(firstCommonCallParameter.ParameterType)
+                                    .Invoke(null, new[] { resultParameter.BoundValue })
                             ));
                         foreach (var otherCommonCallParameter in commonCallParameters.Skip(1))
                             invokeParameterBindingExpressions.Add(new BindOrCheckPredicateExpression(firstCommonCallParameter, new ParameterPredicateExpression(otherCommonCallParameter)));
@@ -243,7 +250,10 @@ namespace Pred
                         if (resultParameter.IsBoundToValue)
                             parameterBindingExpressions.Add(new BindOrCheckPredicateExpression(
                                 firstBoundParameter,
-                                (ConstantPredicateExpression)Activator.CreateInstance(typeof(ConstantPredicateExpression<>).MakeGenericType(firstBoundParameter.ParameterType), resultParameter.BoundValue)
+                                (ConstantPredicateExpression)typeof(PredicateExpression)
+                                    .GetMethod(nameof(PredicateExpression.Constant), 1, BindingFlags.Static | BindingFlags.Public | BindingFlags.InvokeMethod, Type.DefaultBinder, CallingConventions.Standard, new[] { Type.MakeGenericMethodParameter(0) }, null)
+                                    .MakeGenericMethod(firstBoundParameter.ParameterType)
+                                    .Invoke(null, new[] { resultParameter.BoundValue })
                             ));
                         foreach (var otherCallParameter in resultParameter.BoundParameters.Skip(1))
                             parameterBindingExpressions.Add(new BindOrCheckPredicateExpression(firstBoundParameter, new ParameterPredicateExpression(otherCallParameter)));
@@ -252,7 +262,7 @@ namespace Pred
                 }
             );
 
-            await foreach (var predicate in _predicateProvider.GetPredicatesAsync(predicateName, cancellationToken).WithCancellation(cancellationToken))
+            await foreach (var predicate in context.PredicateProvider.GetPredicatesAsync(predicateName, cancellationToken).WithCancellation(cancellationToken))
                 if (_AreParametersMatching(invokeParameters, predicate.Parameters))
                     yield return new Predicate(
                         context.Predicate.Parameters,
@@ -283,6 +293,13 @@ namespace Pred
 
             context.EndVariableLifeCycle();
             return true;
+        }
+
+        private static bool _Visit(PredicateProcessorContext context, CheckPredicateExpression checkExpression)
+        {
+            var result = checkExpression.Check(new PredicateExpressionContext(context.VariableLifeCycleContext));
+            Debug.WriteLine("[check expression] " + (result ? "[continue]" : "[end]"));
+            return result;
         }
 
         private static CallParameter _GetCallParameter(PredicateProcessorContext context, Parameter parameter)

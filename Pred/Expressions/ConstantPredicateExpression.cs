@@ -16,7 +16,7 @@ namespace Pred.Expressions
         public static implicit operator ConstantPredicateExpression<T>(T value)
             => new ConstantPredicateExpression<T>(value);
 
-        public ConstantPredicateExpression(T value)
+        internal ConstantPredicateExpression(T value)
             : base(value, typeof(T))
             => Value = value;
 

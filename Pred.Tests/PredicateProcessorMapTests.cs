@@ -15,7 +15,7 @@ namespace Pred.Tests
                     "MyPredicate", new PredicateParameter[] { Parameter.Predicate<string>("parameter1"), Parameter.Predicate<object>("parameter2") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter2"], new MapPredicateExpression<string, object>((PredicateParameter<string>)parameters["parameter1"], x => x))
+                        PredicateExpression.BindOrCheck(parameters["parameter2"], PredicateExpression.Map<string, object>((PredicateParameter<string>)parameters["parameter1"], x => x))
                     }
                 )
             );
@@ -44,7 +44,7 @@ namespace Pred.Tests
                     "MyPredicate", new PredicateParameter[] { Parameter.Predicate<string>("parameter1"), Parameter.Predicate<object>("parameter2") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter2"], new MapPredicateExpression<string, object>((PredicateParameter<string>)parameters["parameter1"], x => x))
+                        PredicateExpression.BindOrCheck(parameters["parameter2"], PredicateExpression.Map<string, object>((PredicateParameter<string>)parameters["parameter1"], x => x))
                     }
                 )
             );

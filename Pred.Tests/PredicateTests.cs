@@ -69,8 +69,8 @@ namespace Pred.Tests
         {
             var parameter1 = new PredicateParameter<int>("parameter1");
             var parameter2 = new PredicateParameter<object>("parameter2");
-            var expression1 = new ConstantPredicateExpression<int>(10);
-            var expression2 = new ConstantPredicateExpression<object>(20);
+            var expression1 = PredicateExpression.Constant<int>(10);
+            var expression2 = PredicateExpression.Constant<object>(20);
 
             var predicate = new Predicate("predicate", new PredicateParameter[] { parameter1, parameter2 }, expression1, expression2);
 

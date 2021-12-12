@@ -6,7 +6,7 @@ namespace Pred.Expressions
 {
     internal sealed class BeginVariableLifeCyclePredicateExpression : PredicateExpression
     {
-        public BeginVariableLifeCyclePredicateExpression(IEnumerable<PredicateParameterMapping> parameterMappings)
+        internal BeginVariableLifeCyclePredicateExpression(IEnumerable<PredicateParameterMapping> parameterMappings)
         {
             ParameterMappings = parameterMappings as IReadOnlyList<PredicateParameterMapping> ?? parameterMappings?.ToArray();
 

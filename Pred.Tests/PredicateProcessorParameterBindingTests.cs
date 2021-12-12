@@ -15,7 +15,7 @@ namespace Pred.Tests
                     "MyPredicate", new[] { Parameter.Predicate<object>("parameter") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter"], new ConstantPredicateExpression<int>(10))
+                        PredicateExpression.BindOrCheck(parameters["parameter"], PredicateExpression.Constant<int>(10))
                     }
                 )
             );
@@ -39,7 +39,7 @@ namespace Pred.Tests
                     "MyPredicate", new[] { Parameter.Predicate<int>("parameter1"), Parameter.Predicate<int>("parameter2") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter1"], new ParameterPredicateExpression(parameters["parameter2"]))
+                        PredicateExpression.BindOrCheck(parameters["parameter1"], PredicateExpression.Parameter(parameters["parameter2"]))
                     }
                 )
             );
@@ -62,8 +62,8 @@ namespace Pred.Tests
                     "MyPredicate", new[] { Parameter.Predicate<int>("parameter1"), Parameter.Predicate<int>("parameter2") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter1"], new ParameterPredicateExpression(parameters["parameter2"])),
-                        new BindOrCheckPredicateExpression(parameters["parameter1"], new ConstantPredicateExpression<int>(10))
+                        PredicateExpression.BindOrCheck(parameters["parameter1"], PredicateExpression.Parameter(parameters["parameter2"])),
+                        PredicateExpression.BindOrCheck(parameters["parameter1"], PredicateExpression.Constant<int>(10))
                     }
                 )
             );
@@ -87,8 +87,8 @@ namespace Pred.Tests
                     "MyPredicate", new[] { Parameter.Predicate<object>("parameter1"), Parameter.Predicate<object>("parameter2") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter1"], new ConstantPredicateExpression<int>(10)),
-                        new BindOrCheckPredicateExpression(parameters["parameter1"], new ParameterPredicateExpression(parameters["parameter2"]))
+                        PredicateExpression.BindOrCheck(parameters["parameter1"], PredicateExpression.Constant<int>(10)),
+                        PredicateExpression.BindOrCheck(parameters["parameter1"], PredicateExpression.Parameter(parameters["parameter2"]))
                     }
                 )
             );
@@ -112,7 +112,7 @@ namespace Pred.Tests
                     "MyPredicate", new[] { Parameter.Predicate<int>("parameter1"), Parameter.Predicate<int>("parameter2") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter1"], new ParameterPredicateExpression(parameters["parameter1"]))
+                        PredicateExpression.BindOrCheck(parameters["parameter1"], PredicateExpression.Parameter(parameters["parameter1"]))
                     }
                 )
             );
@@ -142,10 +142,10 @@ namespace Pred.Tests
                     "MyPredicate", new[] { Parameter.Predicate<int>("parameter1"), Parameter.Predicate<int>("parameter2"), Parameter.Predicate<int>("parameter3") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter1"], new ParameterPredicateExpression(parameters["parameter2"])),
-                        new BindOrCheckPredicateExpression(parameters["parameter1"], new ParameterPredicateExpression(parameters["parameter2"])),
-                        new BindOrCheckPredicateExpression(parameters["parameter2"], new ParameterPredicateExpression(parameters["parameter3"])),
-                        new BindOrCheckPredicateExpression(parameters["parameter3"], new ConstantPredicateExpression<int>(10))
+                        PredicateExpression.BindOrCheck(parameters["parameter1"], PredicateExpression.Parameter(parameters["parameter2"])),
+                        PredicateExpression.BindOrCheck(parameters["parameter1"], PredicateExpression.Parameter(parameters["parameter2"])),
+                        PredicateExpression.BindOrCheck(parameters["parameter2"], PredicateExpression.Parameter(parameters["parameter3"])),
+                        PredicateExpression.BindOrCheck(parameters["parameter3"], PredicateExpression.Constant<int>(10))
                     }
                 )
             );
@@ -171,7 +171,7 @@ namespace Pred.Tests
                     "MyPredicate", new[] { Parameter.Predicate<object>("parameter") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter"], new ConstantPredicateExpression<int>(10))
+                        PredicateExpression.BindOrCheck(parameters["parameter"], PredicateExpression.Constant<int>(10))
                     }
                 )
             );
@@ -193,7 +193,7 @@ namespace Pred.Tests
                     "MyPredicate", new[] { Parameter.Predicate<object>("parameter") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter"], new ConstantPredicateExpression<int>(10))
+                        PredicateExpression.BindOrCheck(parameters["parameter"], PredicateExpression.Constant<int>(10))
                     }
                 )
             );
@@ -211,14 +211,14 @@ namespace Pred.Tests
                     "MyPredicate", new[] { Parameter.Predicate<object>("parameter") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter"], new ConstantPredicateExpression<int>(10))
+                        PredicateExpression.BindOrCheck(parameters["parameter"], PredicateExpression.Constant<int>(10))
                     }
                 ),
                 new Predicate(
                     "MyPredicate", new[] { Parameter.Predicate<object>("parameter") },
                     parameters => new PredicateExpression[]
                     {
-                        new BindOrCheckPredicateExpression(parameters["parameter"], new ConstantPredicateExpression<int>(20))
+                        PredicateExpression.BindOrCheck(parameters["parameter"], PredicateExpression.Constant<int>(20))
                     }
                 )
             );
@@ -248,10 +248,10 @@ namespace Pred.Tests
                         var outputParameter3 = Parameter.Output<int>("outputParameter3");
                         return new PredicateExpression[]
                         {
-                            new BindOrCheckPredicateExpression(outputParameter1, new ParameterPredicateExpression(parameters["parameter"])),
-                            new BindOrCheckPredicateExpression(outputParameter1, new ParameterPredicateExpression(outputParameter2)),
-                            new BindOrCheckPredicateExpression(outputParameter2, new ParameterPredicateExpression(outputParameter3)),
-                            new BindOrCheckPredicateExpression(outputParameter3, new ConstantPredicateExpression<int>(10))
+                            PredicateExpression.BindOrCheck(outputParameter1, PredicateExpression.Parameter(parameters["parameter"])),
+                            PredicateExpression.BindOrCheck(outputParameter1, PredicateExpression.Parameter(outputParameter2)),
+                            PredicateExpression.BindOrCheck(outputParameter2, PredicateExpression.Parameter(outputParameter3)),
+                            PredicateExpression.BindOrCheck(outputParameter3, PredicateExpression.Constant<int>(10))
                         };
                     }
                 )

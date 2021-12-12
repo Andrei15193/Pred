@@ -9,7 +9,7 @@ namespace Pred.Tests.Expressions
         [Fact]
         public void Create_WithNullParameter_ThrowsException()
         {
-            var exception = Assert.Throws<ArgumentNullException>("parameter", () => new ParameterPredicateExpression(null));
+            var exception = Assert.Throws<ArgumentNullException>("parameter", () => PredicateExpression.Parameter(null));
             Assert.Equal(new ArgumentNullException("parameter").Message, exception.Message);
         }
 
@@ -18,7 +18,7 @@ namespace Pred.Tests.Expressions
         {
             var parameter = Parameter.Predicate<int>("parameter");
 
-            var expression = new ParameterPredicateExpression(parameter);
+            var expression = PredicateExpression.Parameter(parameter);
 
             Assert.Same(parameter, expression.Parameter);
             Assert.Equal(typeof(int), expression.ValueType);

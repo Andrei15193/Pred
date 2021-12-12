@@ -14,27 +14,30 @@ namespace Pred
         private readonly Action<ProcessorPredicateProvider> _addAdditionalPredicateProviderCallback;
         private readonly Stack<PredicateVariableLifeCycleContext> _variableLifeCycleContexts;
 
-        internal PredicateProcessorContext(Predicate predicate, Action<ProcessorPredicateProvider> addAdditionalPredicateProviderCallback)
+        internal PredicateProcessorContext(Predicate predicate, IPredicateProvider predicateProvider, Action<ProcessorPredicateProvider> addAdditionalPredicateProviderCallback)
         {
             _addAdditionalPredicateProviderCallback = addAdditionalPredicateProviderCallback;
             _variableLifeCycleContexts = new Stack<PredicateVariableLifeCycleContext>();
             _predicateExpressionIndex = -1;
             Predicate = predicate;
+            PredicateProvider = predicateProvider;
         }
 
         public Predicate Predicate { get; }
 
-        public PredicateExpression CurrentExpression
+        internal PredicateExpression CurrentExpression
             => Predicate.Body.ElementAtOrDefault(_predicateExpressionIndex);
 
-        public IEnumerable<PredicateExpression> RemainingExpressions
+        internal IEnumerable<PredicateExpression> RemainingExpressions
             => Predicate.Body.Skip(_predicateExpressionIndex + 1);
 
-        public bool NextExpression()
+        internal bool NextExpression()
         {
             _predicateExpressionIndex++;
             return _predicateExpressionIndex < Predicate.Body.Count;
         }
+
+        internal IPredicateProvider PredicateProvider { get; }
 
         internal PredicateVariableLifeCycleContext VariableLifeCycleContext
             => _variableLifeCycleContexts.Peek();
