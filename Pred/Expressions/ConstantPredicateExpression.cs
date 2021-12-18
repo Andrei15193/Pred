@@ -9,6 +9,9 @@ namespace Pred.Expressions
             => Value = value;
 
         public object Value { get; }
+
+        public sealed override void Accept(PredicateExpressionVisitor visitor)
+            => visitor.Visit(this);
     }
 
     public sealed class ConstantPredicateExpression<T> : ConstantPredicateExpression

@@ -15,5 +15,8 @@ namespace Pred.Expressions
         }
 
         public IReadOnlyList<PredicateParameterMapping> ParameterMappings { get; }
+
+        public sealed override void Accept(PredicateExpressionVisitor visitor)
+            => visitor.Visit(this);
     }
 }

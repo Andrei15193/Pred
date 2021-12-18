@@ -24,13 +24,35 @@ namespace Pred
 
         public IDictionary<CallParameter, ResultParameter> ResultParameterMapping { get; }
 
-        public void AddVariable(CallParameter callParameter)
+        public CallParameter GetOrAddCallParameter(Parameter parameter)
+            => GetOrAddCallParameter(parameter, out var _);
+
+        public CallParameter GetOrAddCallParameter(Parameter parameter, out ResultParameter resultParameter)
         {
-            if (!ResultParameterMapping.ContainsKey(callParameter))
+            if (parameter is PredicateParameter expressionPredicateParameter)
             {
-                _localVariables.Add(callParameter);
-                ResultParameterMapping.Add(callParameter, _CreateProcessResultParameter(callParameter));
+                var callParameter = CallParameterMapping[expressionPredicateParameter];
+                resultParameter = ResultParameterMapping[callParameter];
+                return callParameter;
             }
+            else if (parameter is CallParameter expressionCallParameter)
+            {
+                resultParameter = AddVariable(expressionCallParameter);
+                return expressionCallParameter;
+            }
+            else
+                throw new InvalidOperationException($"Unhandled parameter type '{parameter.GetType()}'.");
+        }
+
+        public ResultParameter AddVariable(CallParameter callParameter)
+        {
+            if (!ResultParameterMapping.TryGetValue(callParameter, out var resultParameter))
+            {
+                 resultParameter = _CreateProcessResultParameter(callParameter);
+                _localVariables.Add(callParameter);
+                ResultParameterMapping.Add(callParameter, resultParameter);
+            }
+            return resultParameter;
         }
 
         public void ClearVariables()

@@ -33,6 +33,8 @@ namespace Pred.Expressions
         {
         }
 
+        public abstract void Accept(PredicateExpressionVisitor visitor);
+
         internal sealed class CallbackCheckPredicateExpression : CheckPredicateExpression
         {
             private readonly Func<PredicateExpressionContext, bool> _callback;

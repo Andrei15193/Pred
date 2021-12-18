@@ -9,6 +9,9 @@ namespace Pred.Expressions
             => Selector = selector ?? throw new ArgumentNullException(nameof(selector));
 
         public Func<PredicateExpressionContext, object> Selector { get; }
+
+        public sealed override void Accept(PredicateExpressionVisitor visitor)
+            => visitor.Visit(this);
     }
 
     public sealed class MapPredicateExpression<TResult> : MapPredicateExpression

@@ -7,5 +7,8 @@ namespace Pred.Expressions
         }
 
         protected internal abstract void Process(PredicateExpressionContext context);
+
+        public sealed override void Accept(PredicateExpressionVisitor visitor)
+            => visitor.Visit(this);
     }
 }

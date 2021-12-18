@@ -9,5 +9,8 @@ namespace Pred.Expressions
             => Parameter = parameter;
 
         public new Parameter Parameter { get; }
+
+        public sealed override void Accept(PredicateExpressionVisitor visitor)
+            => visitor.Visit(this);
     }
 }

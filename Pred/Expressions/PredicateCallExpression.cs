@@ -18,5 +18,8 @@ namespace Pred.Expressions
         public string Name { get; }
 
         public IReadOnlyList<ValuePredicateExpression> Parameters { get; }
+
+        public sealed override void Accept(PredicateExpressionVisitor visitor)
+            => visitor.Visit(this);
     }
 }

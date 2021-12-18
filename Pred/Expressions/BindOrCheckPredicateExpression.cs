@@ -16,5 +16,8 @@ namespace Pred.Expressions
         public new Parameter Parameter { get; }
 
         public ValuePredicateExpression Value { get; }
+
+        public sealed override void Accept(PredicateExpressionVisitor visitor)
+            => visitor.Visit(this);
     }
 }
