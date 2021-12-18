@@ -20,20 +20,14 @@ namespace Pred.Expressions
         public static CallPredicateExpression Call(string name, params ValuePredicateExpression[] parameters)
             => new CallPredicateExpression(name, parameters);
 
-        public static MapPredicateExpression<T, TResult> Map<T, TResult>(ParameterPredicateExpression parameter, Func<T, TResult> selector)
-            => new MapPredicateExpression<T, TResult>(parameter, selector);
-
-        public static MapPredicateExpression<T, TResult> Map<T, TResult>(PredicateParameter<T> parameter, Func<T, TResult> selector)
-            => Map(Parameter(parameter), selector);
-
-        public static MapPredicateExpression<T, TResult> Map<T, TResult>(InputParameter<T> parameter, Func<T, TResult> selector)
-            => Map(Parameter(parameter), selector);
-
-        public static MapPredicateExpression<T, TResult> Map<T, TResult>(OutputParameter<T> parameter, Func<T, TResult> selector)
-            => Map(Parameter(parameter), selector);
+        public static MapPredicateExpression<TResult> Map<TResult>(Func<PredicateExpressionContext, TResult> selector)
+            => new MapPredicateExpression<TResult>(selector);
 
         public static CheckPredicateExpression Check(Func<PredicateExpressionContext, bool> callback)
             => new CallbackCheckPredicateExpression(callback);
+
+        public static ActionPredicateExpression Action(Action<PredicateExpressionContext> callback)
+            => new CallbackActionPredicateExpression(callback);
 
         internal PredicateExpression()
         {
@@ -47,6 +41,17 @@ namespace Pred.Expressions
                 => _callback = callback ?? throw new ArgumentNullException(nameof(callback));
 
             protected internal override bool Check(PredicateExpressionContext context)
+                => _callback(context);
+        }
+
+        internal sealed class CallbackActionPredicateExpression : ActionPredicateExpression
+        {
+            private readonly Action<PredicateExpressionContext> _callback;
+
+            public CallbackActionPredicateExpression(Action<PredicateExpressionContext> callback)
+                => _callback = callback ?? throw new ArgumentNullException(nameof(callback));
+
+            protected internal override void Process(PredicateExpressionContext context)
                 => _callback(context);
         }
     }

@@ -89,6 +89,10 @@ namespace Pred
                                     isPredicateTrue = _Visit(context, checkExpression);
                                     break;
 
+                                case ActionPredicateExpression actionExpression:
+                                    isPredicateTrue = _Visit(context, actionExpression);
+                                    break;
+
                                 default:
                                     throw new NotImplementedException($"Unhandled expression type '{context.CurrentExpression.GetType()}'.");
                             }
@@ -158,16 +162,9 @@ namespace Pred
                     return constantExpression.Value;
 
                 case MapPredicateExpression mapExpression:
-                    var callParameter = _GetCallParameter(context, mapExpression.ParameterExpression.Parameter);
-                    var resultParameter = context.VariableLifeCycleContext.ResultParameterMapping[callParameter];
-                    if (resultParameter.IsBoundToValue)
-                    {
-                        var mapResult = mapExpression.Selector(resultParameter.BoundValue);
-                        Debug.Write($"[callback] {_GetValue(mapResult)}");
-                        return mapResult;
-                    }
-                    else
-                        throw new InvalidOperationException($"Invalid map expression, parameter '{callParameter.Name}' is not bound to a value.");
+                    var mapResult = mapExpression.Selector(new PredicateExpressionContext(context.VariableLifeCycleContext));
+                    Debug.Write($"[callback] {_GetValue(mapResult)}");
+                    return mapResult;
 
                 default:
                     throw new NotImplementedException($"Unhandled expression type '{valueExpression.GetType()}'.");
@@ -297,9 +294,26 @@ namespace Pred
 
         private static bool _Visit(PredicateProcessorContext context, CheckPredicateExpression checkExpression)
         {
+            Debug.Write("[begin check expression]");
+            Debug.Indent();
+
             var result = checkExpression.Check(new PredicateExpressionContext(context.VariableLifeCycleContext));
-            Debug.WriteLine("[check expression] " + (result ? "[continue]" : "[end]"));
+
+            Debug.Unindent();
+            Debug.Write("[end check expression] " + (result ? "[continue]" : "[end]"));
             return result;
+        }
+
+        private static bool _Visit(PredicateProcessorContext context, ActionPredicateExpression actionExpression)
+        {
+            Debug.Write("[begin action expression]");
+            Debug.Indent();
+
+            actionExpression.Process(new PredicateExpressionContext(context.VariableLifeCycleContext));
+
+            Debug.Unindent();
+            Debug.WriteLine("[end action expression]");
+            return true;
         }
 
         private static CallParameter _GetCallParameter(PredicateProcessorContext context, Parameter parameter)

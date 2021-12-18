@@ -7,106 +7,19 @@ namespace Pred.Tests.Expressions
     public class MapPredicateExpressionTests
     {
         [Fact]
-        public void Create_WithNullParameterExpression_ThrowsException()
+        public void Create_WithNullSelector_ThrowsException()
         {
-            var exception = Assert.Throws<ArgumentNullException>("parameterExpression", () => PredicateExpression.Map<string, object>(default(ParameterPredicateExpression), x => x));
-            Assert.Equal(new ArgumentNullException("parameterExpression").Message, exception.Message);
-        }
-
-        [Fact]
-        public void Create_WithParameterExpressionAndNullSelectorExpression_ThrowsException()
-        {
-            var exception = Assert.Throws<ArgumentNullException>("selector", () => PredicateExpression.Map<string, object>(PredicateExpression.Parameter(Parameter.Predicate<string>("parameter")), default));
+            var exception = Assert.Throws<ArgumentNullException>("selector", () => PredicateExpression.Map<object>(default));
             Assert.Equal(new ArgumentNullException("selector").Message, exception.Message);
         }
 
         [Fact]
-        public void Create_WithValidParameterExpressionAndSelector_InitializesMapExpression()
+        public void Create_WithValidArguments_InitializesMapExpression()
         {
-            var parameterExpression = PredicateExpression.Parameter(Parameter.Predicate<string>("parameter"));
-            var selector = new Func<string, object>(x => x);
+            var selector = new Func<PredicateExpressionContext, object>(x => x);
 
-            var expression = PredicateExpression.Map<string, object>(parameterExpression, selector);
+            var expression = PredicateExpression.Map<object>(selector);
 
-            Assert.Same(parameterExpression, expression.ParameterExpression);
-            Assert.Same(selector, expression.Selector);
-        }
-
-        [Fact]
-        public void Create_WithNullPredicateParameter_ThrowsException()
-        {
-            var exception = Assert.Throws<ArgumentNullException>("parameter", () => PredicateExpression.Map<string, object>(default(PredicateParameter<string>), x => x));
-            Assert.Equal(new ArgumentNullException("parameter").Message, exception.Message);
-        }
-
-        [Fact]
-        public void Create_WithNullPredicateParameterAndSelectorExpression_ThrowsException()
-        {
-            var exception = Assert.Throws<ArgumentNullException>("selector", () => PredicateExpression.Map<string, object>(Parameter.Predicate<string>("parameter"), default));
-            Assert.Equal(new ArgumentNullException("selector").Message, exception.Message);
-        }
-
-        [Fact]
-        public void Create_WithValidPredicateParameterAndSelector_InitializesMapExpression()
-        {
-            var parameter = Parameter.Predicate<string>("parameter");
-            var selector = new Func<string, object>(x => x);
-
-            var expression = PredicateExpression.Map<string, object>(parameter, selector);
-
-            Assert.Same(parameter, expression.ParameterExpression.Parameter);
-            Assert.Same(selector, expression.Selector);
-        }
-
-        [Fact]
-        public void Create_WithNullInputParameter_ThrowsException()
-        {
-            var exception = Assert.Throws<ArgumentNullException>("parameter", () => PredicateExpression.Map<string, object>(default(InputParameter<string>), x => x));
-            Assert.Equal(new ArgumentNullException("parameter").Message, exception.Message);
-        }
-
-        [Fact]
-        public void Create_WithNullInputParameterAndSelectorExpression_ThrowsException()
-        {
-            var exception = Assert.Throws<ArgumentNullException>("selector", () => PredicateExpression.Map<string, object>(Parameter.Input<string>("parameter", default), default));
-            Assert.Equal(new ArgumentNullException("selector").Message, exception.Message);
-        }
-
-        [Fact]
-        public void Create_WithValidInputParameterAndSelector_InitializesMapExpression()
-        {
-            var parameter = Parameter.Input<string>("parameter", default);
-            var selector = new Func<string, object>(x => x);
-
-            var expression = PredicateExpression.Map<string, object>(parameter, selector);
-
-            Assert.Same(parameter, expression.ParameterExpression.Parameter);
-            Assert.Same(selector, expression.Selector);
-        }
-
-        [Fact]
-        public void Create_WithNullOutputParameter_ThrowsException()
-        {
-            var exception = Assert.Throws<ArgumentNullException>("parameter", () => PredicateExpression.Map<string, object>(default(OutputParameter<string>), x => x));
-            Assert.Equal(new ArgumentNullException("parameter").Message, exception.Message);
-        }
-
-        [Fact]
-        public void Create_WithNullOutputParameterAndSelectorExpression_ThrowsException()
-        {
-            var exception = Assert.Throws<ArgumentNullException>("selector", () => PredicateExpression.Map<string, object>(Parameter.Output<string>("parameter"), default));
-            Assert.Equal(new ArgumentNullException("selector").Message, exception.Message);
-        }
-
-        [Fact]
-        public void Create_WithValidOutputParameterAndSelector_InitializesMapExpression()
-        {
-            var parameter = Parameter.Output<string>("parameter");
-            var selector = new Func<string, object>(x => x);
-
-            var expression = PredicateExpression.Map<string, object>(parameter, selector);
-
-            Assert.Same(parameter, expression.ParameterExpression.Parameter);
             Assert.Same(selector, expression.Selector);
         }
     }
