@@ -11,7 +11,7 @@ namespace Pred.Expressions
         public Func<PredicateExpressionContext, object> Selector { get; }
 
         public sealed override void Accept(PredicateExpressionVisitor visitor)
-            => visitor.Visit(this);
+            => visitor.VisitMapExpression(this);
     }
 
     public sealed class MapPredicateExpression<TResult> : MapPredicateExpression

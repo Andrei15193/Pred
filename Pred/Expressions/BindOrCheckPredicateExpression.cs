@@ -18,6 +18,6 @@ namespace Pred.Expressions
         public ValuePredicateExpression Value { get; }
 
         public sealed override void Accept(PredicateExpressionVisitor visitor)
-            => visitor.Visit(this);
+            => visitor.VisitBindOrCheckExpression(this);
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Pred.Expressions;
 using Xunit;
 
 namespace Pred.Tests
@@ -79,6 +80,45 @@ namespace Pred.Tests
             var results = await predicateProcessor.ProcessAsync("predicate that does not exist").ToListAsync();
 
             Assert.Empty(results);
+        }
+
+        [Theory]
+        [InlineData(1, 1)]
+        [InlineData(2, 2)]
+        [InlineData(3, 6)]
+        [InlineData(4, 24)]
+        public async Task ProcessAsync_Factorial(int input, int factorialResult)
+        {
+            var parameter1 = new PredicateParameter<int>("parameter1");
+            var parameter2 = new PredicateParameter<int>("parameter2");
+
+            var predicateProcessor = new PredicateProcessor(
+                new Predicate(
+                    "factorial", new[] { parameter1, parameter2 },
+                    parameters =>
+                    {
+                        var intermediary1 = new OutputParameter<int>("intermediary1");
+                        var intermediary2 = new OutputParameter<int>("intermediary2");
+                        return new PredicateExpression[]
+                        {
+                            PredicateExpression.Check(context => context.Get<int>(parameters["parameter1"]).BoundValue > 1),
+                            PredicateExpression.BindOrCheck(intermediary1, PredicateExpression.Map(context => context.Get<int>(parameters["parameter1"]).BoundValue - 1)),
+                            PredicateExpression.Call("factorial", PredicateExpression.Parameter(intermediary1), PredicateExpression.Parameter(intermediary2)),
+                            PredicateExpression.BindOrCheck(parameters["parameter2"], PredicateExpression.Map(context => context.Get<int>(parameters["parameter1"]).BoundValue * context.Get(intermediary2).BoundValue))
+                        };
+                    }
+                ),
+                new Predicate(
+                    "factorial", new[] { parameter1, parameter2 },
+                    PredicateExpression.Check(context => context.Get(parameter1).BoundValue <= 1),
+                    PredicateExpression.BindOrCheck(parameter2, PredicateExpression.Constant(1))
+                )
+            );
+
+            var results = await predicateProcessor.ProcessAsync("factorial", new InputParameter<int>("input", input), new OutputParameter<int>("output")).ToListAsync();
+
+            var result = Assert.Single(results);
+            Assert.Equal(factorialResult, result.Get<int>("output").BoundValue);
         }
     }
 }

@@ -20,6 +20,6 @@ namespace Pred.Expressions
         public IReadOnlyList<ValuePredicateExpression> Parameters { get; }
 
         public sealed override void Accept(PredicateExpressionVisitor visitor)
-            => visitor.Visit(this);
+            => visitor.VisitCallExpression(this);
     }
 }

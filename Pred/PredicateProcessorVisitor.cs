@@ -1,8 +1,6 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -21,10 +19,10 @@ namespace Pred
 
         public bool IsExpressionTrue { get; private set; } = true;
 
-        internal protected override void Visit(ConstantPredicateExpression constantExpression)
+        internal protected override void VisitConstantExpression(ConstantPredicateExpression constantExpression)
             => IsExpressionTrue = !_IsFalsy(_Evaluate(constantExpression));
 
-        internal protected override void Visit(BindOrCheckPredicateExpression bindOrCheckExpression)
+        internal protected override void VisitBindOrCheckExpression(BindOrCheckPredicateExpression bindOrCheckExpression)
         {
             var callParameter = _context.VariableLifeCycleContext.GetOrAddCallParameter(bindOrCheckExpression.Parameter, out var resultParameter);
 
@@ -50,7 +48,6 @@ namespace Pred
                 case ValuePredicateExpression valueExpression:
                     Debug.Write($"{callParameter.Name} = ");
                     var value = _Evaluate(valueExpression);
-                    Debug.WriteLine("");
 
                     if (resultParameter.IsBoundToValue)
                         IsExpressionTrue = Equals(resultParameter.BoundValue, value);
@@ -63,7 +60,7 @@ namespace Pred
             }
         }
 
-        internal protected override void Visit(ParameterPredicateExpression parameterExpression)
+        internal protected override void VisitParameterExpression(ParameterPredicateExpression parameterExpression)
         {
             _context.VariableLifeCycleContext.GetOrAddCallParameter(parameterExpression.Parameter, out var resultParameter);
             if (resultParameter.IsBoundToValue)
@@ -72,7 +69,7 @@ namespace Pred
                 IsExpressionTrue = false;
         }
 
-        internal protected override void Visit(CallPredicateExpression callExpression)
+        internal protected override void VisitCallExpression(CallPredicateExpression callExpression)
         {
             var invokeParameters = callExpression
                 .Parameters
@@ -93,10 +90,18 @@ namespace Pred
             IsExpressionTrue = false;
         }
 
-        internal protected override void Visit(MapPredicateExpression mapExpression)
-            => IsExpressionTrue = !_IsFalsy(_Evaluate(mapExpression));
+        internal protected override void VisitMapExpression(MapPredicateExpression mapExpression)
+        {
+            Debug.WriteLine("[begin map expression]");
+            Debug.Indent();
 
-        internal protected override void Visit(CheckPredicateExpression checkExpression)
+            IsExpressionTrue = !_IsFalsy(_Evaluate(mapExpression));
+
+            Debug.Unindent();
+            Debug.WriteLine("[end map expression]");
+        }
+
+        internal protected override void VisitCheckExpression(CheckPredicateExpression checkExpression)
         {
             Debug.WriteLine("[begin check expression]");
             Debug.Indent();
@@ -105,10 +110,9 @@ namespace Pred
 
             Debug.Unindent();
             Debug.WriteLine("[end check expression]");
-            Debug.WriteLine(IsExpressionTrue ? "[continue]" : "[end]");
         }
 
-        internal protected override void Visit(ActionPredicateExpression actionExpression)
+        internal protected override void VisitActionExpression(ActionPredicateExpression actionExpression)
         {
             Debug.WriteLine("[begin action expression]");
             Debug.Indent();
@@ -119,7 +123,7 @@ namespace Pred
             Debug.WriteLine("[end action expression]");
         }
 
-        internal override void Visit(BeginVariableLifeCyclePredicateExpression beginVariableLifeCycleExpression)
+        internal override void VisitBeginVariableLifeCycleExpression(BeginVariableLifeCyclePredicateExpression beginVariableLifeCycleExpression)
         {
             Debug.WriteLine("[begin variable life cycle]");
             Debug.Indent();
@@ -127,7 +131,7 @@ namespace Pred
             _context.BeginVariableLifeCycle(beginVariableLifeCycleExpression.ParameterMappings);
         }
 
-        internal override void Visit(EndVariableLifeCyclePredicateExpression endVariableLifeCycleExpression)
+        internal override void VisitEndVariableLifeCycleExpression(EndVariableLifeCyclePredicateExpression endVariableLifeCycleExpression)
         {
             Debug.Unindent();
             Debug.WriteLine("[end variable life cycle]");

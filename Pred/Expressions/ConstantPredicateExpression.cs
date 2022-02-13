@@ -11,7 +11,7 @@ namespace Pred.Expressions
         public object Value { get; }
 
         public sealed override void Accept(PredicateExpressionVisitor visitor)
-            => visitor.Visit(this);
+            => visitor.VisitConstantExpression(this);
     }
 
     public sealed class ConstantPredicateExpression<T> : ConstantPredicateExpression
